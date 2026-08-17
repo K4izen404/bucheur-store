@@ -1,0 +1,45 @@
+{% extends "admin/base.html" %}
+{% block title %}Produits{% endblock %}
+{% block admin_content %}
+
+<div class="page-title">
+  <span>📦 Produits</span>
+  <a href="{{ url_for('admin_product_add') }}" class="btn btn-gold">+ Ajouter un produit</a>
+</div>
+
+<div class="panel">
+  {% if products %}
+  <table>
+    <tr>
+      <th></th><th>Nom</th><th>Modèle</th><th>Prix</th><th>Stock</th><th>État</th><th>Vedette</th><th>Actions</th>
+    </tr>
+    {% for p in products %}
+    <tr>
+      <td>
+        {% if p.image %}<img class="thumb" src="{{ url_for('static', filename=p.image) }}" alt="">
+        {% else %}<div style="width:42px; height:42px; border-radius:8px; background:var(--dark-3); display:flex; align-items:center; justify-content:center;">📱</div>{% endif %}
+      </td>
+      <td><b>{{ p.name }}</b></td>
+      <td>{{ p.model or '—' }}</td>
+      <td style="color:var(--gold); font-weight:700;">{{ p.price | money }}</td>
+      <td style="color:{{ 'var(--red)' if p.stock <= 3 else 'var(--green)' }}; font-weight:700;">{{ p.stock }}</td>
+      <td><span class="badge-pill badge-order">{{ p.condition }}</span></td>
+      <td>{{ '⭐' if p.featured else '—' }}</td>
+      <td style="white-space:nowrap;">
+        <a href="{{ url_for('admin_product_edit', pid=p.id) }}" class="btn btn-outline btn-sm">Modifier</a>
+        <form method="post" action="{{ url_for('admin_product_delete', pid=p.id) }}" style="display:inline;" onsubmit="return confirm('Supprimer ce produit ?');">
+          <button type="submit" class="btn btn-red btn-sm">Suppr.</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty" style="text-align:center; padding:40px; color:var(--gray);">
+    <div style="font-size:44px; margin-bottom:10px;">📦</div>
+    <p>Aucun produit. Ajoutez votre premier iPhone !</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

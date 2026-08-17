@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ p.name }}{% endblock %}
+{% block content %}
+
+<section class="section">
+  <div class="product-layout">
+    <div class="product-gallery reveal">
+      {% if p.image %}
+        <img src="{{ url_for('static', filename=p.image) }}" alt="{{ p.name }}">
+      {% else %}
+        <div style="font-size:120px;">📱</div>
+      {% endif %}
+    </div>
+    <div class="product-info reveal d1">
+      <div class="model">{{ p.model or 'iPhone' }} · {{ p.condition }}</div>
+      <h1>{{ p.name }}</h1>
+      <div class="product-price">
+        <span class="now">{{ p.price | money }}</span>
+        {% if p.old_price and p.old_price > p.price %}
+          <span class="old">{{ p.old_price | money }}</span>
+          <span class="badge-sale" style="position:static; background:var(--gold); color:var(--dark); font-size:12px; font-weight:800; padding:4px 10px; border-radius:20px;">
+            -{{ ((1 - p.price / p.old_price) * 100) | round | int }}%
+          </span>
+        {% endif %}
+      </div>
+      {% if p.stock > 0 %}
+        <div class="stock-line">✓ En stock{% if p.stock <= 3 %} — plus que {{ p.stock }} disponible(s) !{% endif %}</div>
+      {% else %}
+        <div class="stock-line out">✗ Rupture de stock</div>
+      {% endif %}
+
+      <div class="spec-grid">
+        {% if p.storage %}<div class="spec-item"><div class="k">Stockage</div><div class="v">💾 {{ p.storage }}</div></div>{% endif %}
+        {% if p.color %}<div class="spec-item"><div class="k">Couleur</div><div class="v">🎨 {{ p.color }}</div></div>{% endif %}
+        <div class="spec-item"><div class="k">État</div><div class="v">🏷️ {{ p.condition }}</div></div>
+        {% if p.model %}<div class="spec-item"><div class="k">Modèle</div><div class="v">📱 {{ p.model }}</div></div>{% endif %}
+      </div>
+
+      {% if p.description %}
+        <div class="product-desc">{{ p.description }}</div>
+      {% endif %}
+
+      {% if p.stock > 0 %}
+        <form method="post" action="{{ url_for('cart_add', pid=p.id) }}" data-add-cart>
+          <div class="qty-row">
+            <label>Quantité :</label>
+            <button type="button" class="cart-qty-btn" data-qty-btn="#qty-{{ p.id }}" data-dir="minus" style="background:var(--dark-3); border:1px solid rgba(255,255,255,0.12); color:var(--white); width:34px; height:34px; border-radius:9px; cursor:pointer; font-size:16px;">−</button>
+            <input type="number" id="qty-{{ p.id }}" name="qty" value="1" min="1" max="{{ p.stock }}">
+            <button type="button" data-qty-btn="#qty-{{ p.id }}" data-dir="plus" style="background:var(--dark-3); border:1px solid rgba(255,255,255,0.12); color:var(--white); width:34px; height:34px; border-radius:9px; cursor:pointer; font-size:16px;">+</button>
+          </div>
+          <button type="submit" class="btn btn-gold btn-block" style="font-size:16px; padding:15px;">🛒 Ajouter au panier</button>
+        </form>
+      {% else %}
+        <button class="btn btn-dark btn-block" disabled>Rupture de stock</button>
+      {% endif %}
+
+      <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+        <span class="payment-logos"><span class="pl pl-wave">🌊 Wave</span><span class="pl pl-om">🟠 OM</span><span class="pl pl-cod">💵 Livraison</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if related %}
+<section class="section" style="padding-top:0;">
+  <div class="section-head reveal">
+    <h2>Vous aimerez aussi</h2>
+  </div>
+  <div class="grid">
+    {% for p in related %}{% include "_product_card.html" %}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}

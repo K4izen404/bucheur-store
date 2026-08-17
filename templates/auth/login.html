@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Connexion{% endblock %}
+{% block content %}
+
+<div class="auth-wrap">
+  <div class="auth-card reveal">
+    <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Store" style="width:64px; height:64px; border-radius:14px; margin:0 auto 16px; display:block;">
+    <h1>Bon retour 👋</h1>
+    <p class="sub">Connectez-vous pour suivre vos commandes.</p>
+    <form method="post">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" required placeholder="vous@email.com">
+      </div>
+      <div class="field">
+        <label>Mot de passe</label>
+        <input type="password" name="password" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-gold btn-block">Se connecter</button>
+    </form>
+    <div class="auth-alt">Pas encore de compte ? <a href="{{ url_for('register') }}">Créer un compte</a></div>
+  </div>
+</div>
+
+{% endblock %}

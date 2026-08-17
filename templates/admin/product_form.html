@@ -1,0 +1,74 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ 'Modifier' if p else 'Ajouter' }} un produit{% endblock %}
+{% block admin_content %}
+
+<div class="page-title">
+  <span>{{ '✏️ Modifier' if p else '➕ Ajouter' }} un produit</span>
+  <a href="{{ url_for('admin_products') }}" class="btn btn-outline btn-sm">← Retour</a>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+  <div class="panel">
+    <div class="form-grid">
+      <div class="field">
+        <label>Nom du produit *</label>
+        <input type="text" name="name" required value="{{ p['name'] if p }}" placeholder="iPhone 15 Pro Max">
+      </div>
+      <div class="field">
+        <label>Modèle</label>
+        <input type="text" name="model" value="{{ p['model'] if p }}" placeholder="iPhone 15">
+      </div>
+      <div class="field">
+        <label>Prix (F CFA) *</label>
+        <input type="number" name="price" step="0.01" min="0" required value="{{ p['price'] if p }}" placeholder="450000">
+      </div>
+      <div class="field">
+        <label>Ancien prix (pour la promo)</label>
+        <input type="number" name="old_price" step="0.01" min="0" value="{{ p['old_price'] if p }}" placeholder="500000">
+      </div>
+      <div class="field">
+        <label>Stockage</label>
+        <input type="text" name="storage" value="{{ p['storage'] if p }}" placeholder="256 Go">
+      </div>
+      <div class="field">
+        <label>Couleur</label>
+        <input type="text" name="color" value="{{ p['color'] if p }}" placeholder="Titanium Naturel">
+      </div>
+      <div class="field">
+        <label>État</label>
+        <select name="condition">
+          {% for c in ['Neuf', 'Reconditionné A+', 'Reconditionné A', 'Occasion'] %}
+            <option value="{{ c }}" {{ 'selected' if p and p['condition'] == c }}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Stock</label>
+        <input type="number" name="stock" min="0" value="{{ p['stock'] if p else 1 }}">
+      </div>
+      <div class="field full">
+        <label>Description</label>
+        <textarea name="description" placeholder="État du téléphone, accessoires inclus, garantie…">{{ p['description'] if p }}</textarea>
+      </div>
+      <div class="field">
+        <label>Image du produit</label>
+        <input type="file" name="image" accept="image/*">
+        {% if p and p.image %}<small style="color:var(--gray);">Image actuelle : {{ p.image }}</small>{% endif %}
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <div class="checkbox-row">
+          <input type="checkbox" name="featured" id="featured" {{ 'checked' if p and p['featured'] }}>
+          <label for="featured" style="color:var(--white); margin:0;">⭐ Mettre en vedette (accueil)</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" name="active" id="active" {{ 'checked' if not p or p['active'] }}>
+          <label for="active" style="color:var(--white); margin:0;">✅ Visible dans le catalogue</label>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-gold" style="margin-top:8px;">💾 Enregistrer le produit</button>
+  </div>
+</form>
+
+{% endblock %}

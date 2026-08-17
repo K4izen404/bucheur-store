@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Commande confirmée{% endblock %}
+{% block content %}
+
+<section class="success-wrap">
+  <div class="checkmark">
+    <svg viewBox="0 0 52 52">
+      <path fill="none" stroke-width="5" d="M14 27 l8 8 l16 -16" />
+    </svg>
+  </div>
+  <h1>Merci, {{ order.customer_name }} ! 🎉</h1>
+  <p class="sub">Votre commande n°<b style="color:var(--gold);">{{ order.id }}</b> a bien été enregistrée.</p>
+
+  <div class="success-order">
+    <div class="so-row"><span>Commande</span><span><b>#{{ order.id }}</b></span></div>
+    <div class="so-row"><span>Total</span><span><b style="color:var(--gold);">{{ order.total | money }}</b></span></div>
+    <div class="so-row"><span>Paiement</span>
+      <span>
+        {% if order.payment_method == 'wave' %}🌊 Wave{% elif order.payment_method == 'om' %}🟠 Orange Money{% else %}💵 À la livraison{% endif %}
+      </span>
+    </div>
+    <div class="so-row"><span>Statut paiement</span>
+      <span class="badge-pill {{ 'badge-paid' if order.payment_status == 'paid' else 'badge-pending' }}">
+        {{ PAYMENT_STATUS[order.payment_status] }}
+      </span>
+    </div>
+    {% for it in items %}
+      <div class="so-row"><span>{{ it.product_name }} × {{ it.quantity }}</span><span>{{ (it.price * it.quantity) | money }}</span></div>
+    {% endfor %}
+  </div>
+
+  <p style="color:var(--gray); margin-bottom:24px;">
+    {% if order.payment_method == 'cod' %}
+      Vous paierez <b>{{ order.total | money }}</b> à la livraison. Nous vous contacterons au {{ order.customer_phone }} pour confirmer.
+    {% else %}
+      Nous vérifions votre paiement. Vous recevrez une confirmation par téléphone ({{ order.customer_phone }}).
+    {% endif %}
+  </p>
+  <a href="{{ url_for('catalog') }}" class="btn btn-gold">Continuer mes achats</a>
+</section>
+
+{% endblock %}

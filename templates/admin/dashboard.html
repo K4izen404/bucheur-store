@@ -1,0 +1,69 @@
+{% extends "admin/base.html" %}
+{% block title %}Tableau de bord{% endblock %}
+{% block admin_content %}
+
+<div class="page-title">📊 Tableau de bord</div>
+
+<div class="cards-row">
+  <div class="stat-card"><div class="label">Chiffre d'affaires total</div><div class="value gold">{{ total_revenue | money }}</div></div>
+  <div class="stat-card"><div class="label">CA aujourd'hui</div><div class="value green">{{ today_revenue | money }}</div></div>
+  <div class="stat-card"><div class="label">CA 7 derniers jours</div><div class="value blue">{{ week_revenue | money }}</div></div>
+  <div class="stat-card"><div class="label">Commandes</div><div class="value">{{ orders_count }}</div></div>
+  <div class="stat-card"><div class="label">Paiements en attente</div><div class="value orange">{{ pending_count }}</div></div>
+  <div class="stat-card"><div class="label">Stock faible (≤ 3)</div><div class="value red">{{ low_stock }}</div></div>
+</div>
+
+<div class="cards-row">
+  <div class="stat-card"><div class="label">Revenus Wave</div><div class="value blue">{{ wave_total | money }}</div></div>
+  <div class="stat-card"><div class="label">Revenus Orange Money</div><div class="value orange">{{ om_total | money }}</div></div>
+</div>
+
+<div class="panel">
+  <h3>📈 Chiffre d'affaires — 7 derniers jours</h3>
+  <div class="bars">
+    {% set maxv = last7 | map(attribute='total') | max %}
+    {% for d in last7 %}
+    <div class="bar-col">
+      <div class="val">{{ (d.total | int) // 1000 }}k</div>
+      <div class="bar" style="height: {{ ((d.total / maxv * 100) | int) if maxv > 0 else 0 }}%;" title="{{ d.total | money }}"></div>
+      <div class="day">{{ d.day }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="split" style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <div class="panel">
+    <h3>🏆 Produits les plus vendus</h3>
+    {% if best_sellers %}
+    <table>
+      <tr><th>Produit</th><th>Qté</th><th>CA</th></tr>
+      {% for b in best_sellers %}
+      <tr><td>{{ b.product_name }}</td><td>{{ b.q }}</td><td style="color:var(--gold); font-weight:700;">{{ b.t | money }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p style="color:var(--gray); font-size:13.5px;">Pas encore de ventes.</p>
+    {% endif %}
+  </div>
+  <div class="panel">
+    <h3>🕐 Dernières commandes</h3>
+    {% if recent_orders %}
+    <table>
+      <tr><th>#</th><th>Client</th><th>Total</th><th>Statut</th></tr>
+      {% for o in recent_orders %}
+      <tr>
+        <td><a href="{{ url_for('admin_order_detail', oid=o.id) }}">#{{ o.id }}</a></td>
+        <td>{{ o.customer_name }}</td>
+        <td style="font-weight:700;">{{ o.total | money }}</td>
+        <td><span class="badge-pill {{ 'badge-paid' if o.payment_status == 'paid' else 'badge-pending' }}">{{ PAYMENT_STATUS[o.payment_status] }}</span></td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p style="color:var(--gray); font-size:13.5px;">Aucune commande pour l'instant.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

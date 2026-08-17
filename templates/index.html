@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Accueil{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <div class="hero-content reveal">
+    <h1>L'iPhone de vos rêves, <span class="grad">au juste prix</span></h1>
+    <p>Bûcheur Store — votre boutique en ligne de confiance pour les iPhones au Sénégal. Produits authentiques, paiement sécurisé Wave & Orange Money, livraison rapide.</p>
+    <a href="{{ url_for('catalog') }}" class="btn btn-gold">Découvrir le catalogue →</a>
+    <div class="hero-badges">
+      <span>✅ 100% authentique</span>
+      <span>💰 Wave & Orange Money</span>
+      <span>🚚 Livraison rapide</span>
+    </div>
+  </div>
+  <div class="hero-visual reveal d2">
+    <div class="hero-phone">
+      <div class="p-screen">📱</div>
+    </div>
+    <div class="hero-chip c1">💎 <b>Authentique</b> garanti</div>
+    <div class="hero-chip c2">⚡ <b>Payez</b> par Wave</div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head reveal">
+    <h2>⭐ Produits en vedette</h2>
+    <a href="{{ url_for('catalog') }}" class="more">Tout voir →</a>
+  </div>
+  {% if featured %}
+  <div class="grid">
+    {% for p in featured %}
+      {% include "_product_card.html" %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty"><div class="ico">📦</div><h3>Aucun produit en vedette pour l'instant</h3></div>
+  {% endif %}
+</section>
+
+<section class="section" style="padding-top:0;">
+  <div class="section-head reveal">
+    <h2>🔥 Nouveautés</h2>
+    <a href="{{ url_for('catalog') }}" class="more">Tout voir →</a>
+  </div>
+  {% if latest %}
+  <div class="grid">
+    {% for p in latest %}
+      {% include "_product_card.html" %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+
+<section class="section" style="padding-top:0;">
+  <div class="panel reveal" style="display:grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items:center;">
+    <div>
+      <h2 style="font-size:26px; margin-bottom:12px;">Comment ça marche ?</h2>
+      <p style="color:var(--gray); line-height:1.7; margin-bottom:16px;">Un parcours d'achat simple et sécurisé en 3 étapes.</p>
+      <ol style="list-style:none; display:grid; gap:14px;">
+        <li style="display:flex; gap:12px; align-items:start;">
+          <span style="background:var(--gold); color:var(--dark); width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; flex-shrink:0;">1</span>
+          <span><b>Choisissez votre iPhone</b><br><small style="color:var(--gray);">Parcourez le catalogue et ajoutez au panier.</small></span>
+        </li>
+        <li style="display:flex; gap:12px; align-items:start;">
+          <span style="background:var(--gold); color:var(--dark); width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; flex-shrink:0;">2</span>
+          <span><b>Payez en ligne</b><br><small style="color:var(--gray);">Wave, Orange Money ou à la livraison.</small></span>
+        </li>
+        <li style="display:flex; gap:12px; align-items:start;">
+          <span style="background:var(--gold); color:var(--dark); width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; flex-shrink:0;">3</span>
+          <span><b>Recevez votre iPhone</b><br><small style="color:var(--gray);">Livraison rapide partout au Sénégal.</small></span>
+        </li>
+      </ol>
+      <div class="payment-logos" style="margin-top:20px;">
+        <span class="pl pl-wave">🌊 Wave</span>
+        <span class="pl pl-om">🟠 Orange Money</span>
+        <span class="pl pl-cod">💵 À la livraison</span>
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:80px; animation: float 5s ease-in-out infinite;">🛒</div>
+      <p style="color:var(--gray); margin-top:10px;">Paiement sécurisé & commande suivie</p>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

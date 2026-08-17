@@ -1,0 +1,52 @@
+{% extends "admin/base.html" %}
+{% block title %}Commandes{% endblock %}
+{% block admin_content %}
+
+<div class="page-title">🧾 Commandes</div>
+
+<form method="get" class="filters">
+  <select name="status" onchange="this.form.submit()">
+    <option value="">Statut commande : tous</option>
+    {% for k, v in ORDER_STATUS.items() %}
+      <option value="{{ k }}" {{ 'selected' if cur_status == k }}>{{ v }}</option>
+    {% endfor %}
+  </select>
+  <select name="payment" onchange="this.form.submit()">
+    <option value="">Paiement : tous</option>
+    {% for k, v in PAYMENT_STATUS.items() %}
+      <option value="{{ k }}" {{ 'selected' if cur_payment == k }}>{{ v }}</option>
+    {% endfor %}
+  </select>
+  {% if cur_status or cur_payment %}<a href="{{ url_for('admin_orders') }}" class="btn btn-outline btn-sm">Réinitialiser</a>{% endif %}
+</form>
+
+<div class="panel">
+  {% if orders %}
+  <table>
+    <tr>
+      <th>#</th><th>Client</th><th>Téléphone</th><th>Total</th><th>Paiement</th><th>Statut paiement</th><th>Statut</th><th>Date</th>
+    </tr>
+    {% for o in orders %}
+    <tr>
+      <td><a href="{{ url_for('admin_order_detail', oid=o.id) }}"><b>#{{ o.id }}</b></a></td>
+      <td>{{ o.customer_name }}</td>
+      <td>{{ o.customer_phone }}</td>
+      <td style="color:var(--gold); font-weight:700;">{{ o.total | money }}</td>
+      <td>
+        {% if o.payment_method == 'wave' %}🌊 Wave{% elif o.payment_method == 'om' %}🟠 OM{% else %}💵 Livraison{% endif %}
+      </td>
+      <td><span class="badge-pill {{ 'badge-paid' if o.payment_status == 'paid' else ('badge-failed' if o.payment_status == 'failed' else 'badge-pending') }}">{{ PAYMENT_STATUS[o.payment_status] }}</span></td>
+      <td><span class="badge-pill badge-order">{{ ORDER_STATUS[o.order_status] }}</span></td>
+      <td style="color:var(--gray); font-size:12.5px;">{{ o.created_at[:16] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty" style="text-align:center; padding:40px; color:var(--gray);">
+    <div style="font-size:44px; margin-bottom:10px;">🧾</div>
+    <p>Aucune commande.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

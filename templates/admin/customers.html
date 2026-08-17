@@ -1,0 +1,30 @@
+{% extends "admin/base.html" %}
+{% block title %}Clients{% endblock %}
+{% block admin_content %}
+
+<div class="page-title">👥 Clients</div>
+
+<div class="panel">
+  {% if customers %}
+  <table>
+    <tr><th>Client</th><th>Email</th><th>Téléphone</th><th>Commandes</th><th>Total dépensé</th><th>Inscrit le</th></tr>
+    {% for c in customers %}
+    <tr>
+      <td><b>{{ c.name }}</b></td>
+      <td>{{ c.email }}</td>
+      <td>{{ c.phone or '—' }}</td>
+      <td>{{ c.orders_count }}</td>
+      <td style="color:var(--gold); font-weight:700;">{{ (c.spent or 0) | money }}</td>
+      <td style="color:var(--gray); font-size:12.5px;">{{ c.created_at[:10] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty" style="text-align:center; padding:40px; color:var(--gray);">
+    <div style="font-size:44px; margin-bottom:10px;">👥</div>
+    <p>Aucun client inscrit pour le moment.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

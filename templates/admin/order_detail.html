@@ -1,0 +1,74 @@
+{% extends "admin/base.html" %}
+{% block title %}Commande #{{ order.id }}{% endblock %}
+{% block admin_content %}
+
+<div class="page-title">
+  <span>🧾 Commande #{{ order.id }}</span>
+  <a href="{{ url_for('admin_orders') }}" class="btn btn-outline btn-sm">← Retour</a>
+</div>
+
+<div class="split" style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <div class="panel">
+    <h3>👤 Client</h3>
+    <table>
+      <tr><td style="color:var(--gray);">Nom</td><td><b>{{ order.customer_name }}</b></td></tr>
+      <tr><td style="color:var(--gray);">Téléphone</td><td>{{ order.customer_phone }}</td></tr>
+      <tr><td style="color:var(--gray);">Email</td><td>{{ order.customer_email or '—' }}</td></tr>
+      <tr><td style="color:var(--gray);">Adresse</td><td>{{ order.address or '—' }}</td></tr>
+      <tr><td style="color:var(--gray);">Date</td><td>{{ order.created_at }}</td></tr>
+      <tr><td style="color:var(--gray);">Note</td><td>{{ order.note or '—' }}</td></tr>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h3>💳 Paiement</h3>
+    <table>
+      <tr><td style="color:var(--gray);">Moyen</td>
+        <td>{% if order.payment_method == 'wave' %}🌊 Wave{% elif order.payment_method == 'om' %}🟠 Orange Money{% else %}💵 À la livraison{% endif %}</td></tr>
+      <tr><td style="color:var(--gray);">Statut paiement</td>
+        <td><span class="badge-pill {{ 'badge-paid' if order.payment_status == 'paid' else ('badge-failed' if order.payment_status == 'failed' else 'badge-pending') }}">{{ PAYMENT_STATUS[order.payment_status] }}</span></td></tr>
+      {% if order.reference %}
+      <tr><td style="color:var(--gray);">Référence</td><td><b style="color:var(--gold);">{{ order.reference }}</b></td></tr>
+      {% endif %}
+      <tr><td style="color:var(--gray);">Total</td><td style="color:var(--gold); font-weight:800; font-size:17px;">{{ order.total | money }}</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h3>📦 Articles</h3>
+  <table>
+    <tr><th>Produit</th><th>Qté</th><th>Prix unitaire</th><th>Sous-total</th></tr>
+    {% for it in items %}
+    <tr>
+      <td>{{ it.product_name }}</td>
+      <td>{{ it.quantity }}</td>
+      <td>{{ it.price | money }}</td>
+      <td style="font-weight:700;">{{ (it.price * it.quantity) | money }}</td>
+    </tr>
+    {% endfor %}
+    <tr><td colspan="3" style="text-align:right; font-weight:700;">TOTAL</td><td style="color:var(--gold); font-weight:800;">{{ order.total | money }}</td></tr>
+  </table>
+</div>
+
+<form method="post" action="{{ url_for('admin_order_status', oid=order.id) }}" class="panel" style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap;">
+  <div class="field" style="margin:0;">
+    <label>Statut de la commande</label>
+    <select name="order_status">
+      {% for k, v in ORDER_STATUS.items() %}
+        <option value="{{ k }}" {{ 'selected' if order.order_status == k }}>{{ v }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field" style="margin:0;">
+    <label>Statut du paiement</label>
+    <select name="payment_status">
+      {% for k, v in PAYMENT_STATUS.items() %}
+        <option value="{{ k }}" {{ 'selected' if order.payment_status == k }}>{{ v }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-gold">💾 Mettre à jour</button>
+</form>
+
+{% endblock %}

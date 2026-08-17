@@ -1,0 +1,24 @@
+<a href="{{ url_for('product', pid=p.id) }}" class="card reveal" style="display:block;">
+  <div class="card-img">
+    {% if p.old_price and p.old_price > p.price %}
+      <span class="badge-sale">-{{ ((1 - p.price / p.old_price) * 100) | round | int }}%</span>
+    {% endif %}
+    {% if p.image %}
+      <img src="{{ url_for('static', filename=p.image) }}" alt="{{ p.name }}" loading="lazy">
+    {% else %}
+      <div style="font-size:70px;">📱</div>
+    {% endif %}
+    <span class="badge-stock {{ 'out' if p.stock <= 0 }}">
+      {{ 'Rupture' if p.stock <= 0 else ('Plus que ' ~ p.stock ~ ' en stock' if p.stock <= 3 else 'En stock') }}
+    </span>
+  </div>
+  <div class="card-body">
+    <div class="model">{{ p.model or 'iPhone' }}</div>
+    <h3>{{ p.name }}</h3>
+    <div class="specs">{{ p.storage or '—' }} · {{ p.color or '—' }} · {{ p.condition }}</div>
+    <div class="card-price">
+      <span class="now">{{ p.price | money }}</span>
+      {% if p.old_price and p.old_price > p.price %}<span class="old">{{ p.old_price | money }}</span>{% endif %}
+    </div>
+  </div>
+</a>

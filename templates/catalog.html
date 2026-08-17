@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Catalogue{% endblock %}
+{% block content %}
+
+<section class="section">
+  <div class="section-head reveal">
+    <div>
+      <h2>Catalogue</h2>
+      <div class="sub">{{ products | length }} iPhone(s) disponible(s)</div>
+    </div>
+    <form method="get" style="display:flex; gap:10px; align-items:center;">
+      <input type="text" name="q" value="{{ filters.get('q', '') }}" placeholder="🔍 Rechercher un iPhone…"
+             style="background:var(--dark-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:10px 14px; border-radius:10px; min-width:220px;">
+      <select name="sort" onchange="this.form.submit()" style="background:var(--dark-3); border:1px solid rgba(255,255,255,0.1); color:var(--white); padding:10px 14px; border-radius:10px;">
+        <option value="recent" {{ 'selected' if filters.get('sort', 'recent') == 'recent' }}>Plus récents</option>
+        <option value="price_asc" {{ 'selected' if filters.get('sort') == 'price_asc' }}>Prix croissant</option>
+        <option value="price_desc" {{ 'selected' if filters.get('sort') == 'price_desc' }}>Prix décroissant</option>
+        <option value="name" {{ 'selected' if filters.get('sort') == 'name' }}>Nom A-Z</option>
+      </select>
+      {% if filters.get('q') %}<a href="{{ url_for('catalog') }}" class="btn btn-dark btn-sm">Réinitialiser</a>{% endif %}
+    </form>
+  </div>
+
+  <div class="split" style="grid-template-columns: 220px 1fr;">
+    <aside class="panel reveal d1" style="padding:20px;">
+      <h3 style="font-size:14px; margin-bottom:14px;">Filtres</h3>
+      <form method="get" id="filter-form">
+        {% if filters.get('q') %}<input type="hidden" name="q" value="{{ filters.get('q') }}">{% endif %}
+        <div class="field">
+          <label>Modèle</label>
+          <select name="model" onchange="this.form.submit()">
+            <option value="">Tous</option>
+            {% for m in models %}
+              <option value="{{ m['model'] }}" {{ 'selected' if filters.get('model') == m['model'] }}>{{ m['model'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Couleur</label>
+          <select name="color" onchange="this.form.submit()">
+            <option value="">Toutes</option>
+            {% for c in colors %}
+              <option value="{{ c['color'] }}" {{ 'selected' if filters.get('color') == c['color'] }}>{{ c['color'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Stockage</label>
+          <select name="storage" onchange="this.form.submit()">
+            <option value="">Tous</option>
+            {% for s in storages %}
+              <option value="{{ s['storage'] }}" {{ 'selected' if filters.get('storage') == s['storage'] }}>{{ s['storage'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>État</label>
+          <select name="condition" onchange="this.form.submit()">
+            <option value="">Tous</option>
+            {% for c in conditions %}
+              <option value="{{ c['condition'] }}" {{ 'selected' if filters.get('condition') == c['condition'] }}>{{ c['condition'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if filters %}
+        <a href="{{ url_for('catalog') }}" class="btn btn-outline btn-sm btn-block">✕ Effacer les filtres</a>
+        {% endif %}
+      </form>
+    </aside>
+
+    <div>
+      {% if products %}
+      <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));">
+        {% for p in products %}{% include "_product_card.html" %}{% endfor %}
+      </div>
+      {% else %}
+      <div class="empty" style="border:1px dashed rgba(255,255,255,0.15); border-radius:16px;">
+        <div class="ico">🔍</div>
+        <h3>Aucun produit trouvé</h3>
+        <p>Essayez d'autres filtres ou revenez plus tard.</p>
+        <a href="{{ url_for('catalog') }}" class="btn btn-gold mt">Voir tout le catalogue</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}

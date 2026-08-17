@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Panier{% endblock %}
+{% block content %}
+
+<section class="section">
+  <div class="section-head reveal">
+    <h2>🛒 Mon panier</h2>
+    <span class="sub">{{ items | length }} article(s)</span>
+  </div>
+
+  {% if items %}
+  <div class="split">
+    <div class="panel reveal">
+      <h3>Articles</h3>
+      {% for it in items %}
+      <div class="cart-item">
+        <div style="width:64px; height:64px; border-radius:10px; overflow:hidden; background:var(--dark-3);">
+          {% if it.product.image %}
+            <img src="{{ url_for('static', filename=it.product.image) }}" alt="" style="width:100%; height:100%; object-fit:cover;">
+          {% else %}
+            <div style="display:flex; align-items:center; justify-content:center; height:100%; font-size:26px;">📱</div>
+          {% endif %}
+        </div>
+        <div>
+          <h4>{{ it.product.name }}</h4>
+          <div class="price">{{ it.product.price | money }} × {{ it.qty }}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <form method="post" action="{{ url_for('cart_update', pid=it.product.id) }}" style="display:flex; align-items:center; gap:8px;">
+            <div class="cart-qty">
+              <input type="number" name="qty" value="{{ it.qty }}" min="0" max="{{ it.product.stock }}">
+              <button type="submit" class="btn btn-dark btn-sm">OK</button>
+            </div>
+          </form>
+          <form method="post" action="{{ url_for('cart_update', pid=it.product.id) }}">
+            <input type="hidden" name="qty" value="0">
+            <button type="submit" class="btn btn-sm" style="background:transparent; border:none; font-size:18px; color:var(--red); cursor:pointer;">✕</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="panel reveal d1">
+      <h3>Récapitulatif</h3>
+      <div class="summary-line"><span>Sous-total</span><span>{{ total | money }}</span></div>
+      <div class="summary-line"><span>Livraison</span><span>À convenir</span></div>
+      <div class="summary-line total"><span>Total</span><span>{{ total | money }}</span></div>
+      <a href="{{ url_for('checkout') }}" class="btn btn-gold btn-block mt" style="font-size:16px;">Commander →</a>
+      <a href="{{ url_for('catalog') }}" class="btn btn-outline btn-block mt">Continuer mes achats</a>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty" style="border:1px dashed rgba(255,255,255,0.15); border-radius:16px;">
+    <div class="ico">🛒</div>
+    <h3>Votre panier est vide</h3>
+    <p>Découvrez nos iPhones et ajoutez vos favoris.</p>
+    <a href="{{ url_for('catalog') }}" class="btn btn-gold mt">Voir le catalogue</a>
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}

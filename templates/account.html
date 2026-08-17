@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Mon compte{% endblock %}
+{% block content %}
+
+<section class="section">
+  <div class="section-head reveal">
+    <h2>👤 Mon compte</h2>
+    <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">Déconnexion</a>
+  </div>
+
+  <div class="panel reveal" style="max-width:560px; margin-bottom:30px;">
+    <h3>Profil</h3>
+    <div class="summary-line"><span>Nom</span><span><b>{{ user.name }}</b></span></div>
+    <div class="summary-line"><span>Email</span><span>{{ user.email }}</span></div>
+    {% if user.phone %}<div class="summary-line"><span>Téléphone</span><span>{{ user.phone }}</span></div>{% endif %}
+    <div class="summary-line"><span>Membre depuis</span><span>{{ user.created_at[:10] }}</span></div>
+  </div>
+
+  <div class="section-head reveal" style="margin-top:30px;">
+    <h2>📦 Mes commandes</h2>
+  </div>
+
+  {% if orders %}
+  <div class="panel reveal">
+    {% for o in orders %}
+    <div class="cart-item" style="grid-template-columns: 1fr auto auto;">
+      <div>
+        <h4>Commande #{{ o.id }} — {{ o.created_at[:16] }}</h4>
+        <div class="price">{{ o.total | money }}</div>
+      </div>
+      <span class="badge-pill {{ 'badge-paid' if o.payment_status == 'paid' else 'badge-pending' }}">
+        {{ PAYMENT_STATUS[o.payment_status] }}
+      </span>
+      <span class="badge-pill" style="background:rgba(212,175,55,0.15); color:var(--gold);">
+        {{ ORDER_STATUS[o.order_status] }}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty" style="border:1px dashed rgba(255,255,255,0.15); border-radius:16px;">
+    <div class="ico">📦</div>
+    <h3>Aucune commande pour le moment</h3>
+    <a href="{{ url_for('catalog') }}" class="btn btn-gold mt">Faire mon premier achat</a>
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}

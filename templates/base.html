@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Bûcheur Store{% endblock %} · Bûcheur Store</title>
+  <link rel="icon" href="{{ url_for('static', filename='uploads/logo.jpg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <a href="{{ url_for('home') }}" class="brand">
+        <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Store">
+        <span>BÛCHEUR<em>STORE</em></span>
+      </a>
+      <button class="menu-toggle" aria-label="Menu">☰</button>
+      <div class="nav-links">
+        <a href="{{ url_for('home') }}" class="{{ 'active' if request.path == '/' }}">Accueil</a>
+        <a href="{{ url_for('catalog') }}" class="{{ 'active' if '/catalogue' in request.path }}">Catalogue</a>
+        <a href="https://wa.me/221770000000?text=Bonjour%20B%C3%BBcheur%20Store%2C%20j%27ai%20une%20question" target="_blank">WhatsApp</a>
+        {% if session.get('user_id') %}
+          <a href="{{ url_for('account') }}" class="{{ 'active' if '/compte' in request.path }}">Mon compte</a>
+          <a href="{{ url_for('logout') }}">Déconnexion</a>
+        {% else %}
+          <a href="{{ url_for('login') }}">Connexion</a>
+        {% endif %}
+      </div>
+      <a href="{{ url_for('cart') }}" class="cart-btn">
+        🛒 <span>Panier</span>
+        <span class="cart-badge">{{ cart_count }}</span>
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashes">
+          {% for cat, msg in messages %}
+            <div class="flash {{ cat }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer>
+    <div class="footer-grid">
+      <div>
+        <h4>Bûcheur Store</h4>
+        <p>Votre boutique en ligne de confiance pour les iPhones. Produits authentiques, prix justes et livraison rapide partout au Sénégal.</p>
+      </div>
+      <div>
+        <h4>Liens rapides</h4>
+        <a href="{{ url_for('catalog') }}">Catalogue</a>
+        <a href="{{ url_for('cart') }}">Panier</a>
+        <a href="{{ url_for('account') }}">Mon compte</a>
+      </div>
+      <div>
+        <h4>Paiement</h4>
+        <p>Wave · Orange Money · À la livraison</p>
+        <p style="margin-top:8px;">📞 +221 77 000 00 00</p>
+        <p>📍 Dakar, Sénégal</p>
+      </div>
+    </div>
+    <div class="footer-bottom">© 2026 Bûcheur Store — Tous droits réservés</div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

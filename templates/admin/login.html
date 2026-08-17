@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin · Bûcheur Store</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+  <div class="admin-login-wrap">
+    <div class="admin-login-card">
+      <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Store" style="width:60px; height:60px; border-radius:13px; margin:0 auto 16px; display:block;">
+      <h1>🛠️ Espace Admin</h1>
+      <p class="sub">Accès réservé à Bûcheur</p>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="flash {{ cat }}" style="margin-bottom:14px;">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+      <form method="post">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" name="email" required placeholder="admin@bucheur.sn">
+        </div>
+        <div class="field">
+          <label>Mot de passe</label>
+          <input type="password" name="password" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn btn-gold btn-block" style="width:100%; padding:12px;">Se connecter</button>
+      </form>
+      <p style="text-align:center; margin-top:16px; font-size:12.5px;"><a href="{{ url_for('home') }}">← Retour au site</a></p>
+    </div>
+  </div>
+</body>
+</html>

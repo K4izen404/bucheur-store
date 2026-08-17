@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Commande{% endblock %}
+{% block content %}
+
+<section class="section">
+  <div class="section-head reveal">
+    <h2>Finaliser ma commande</h2>
+  </div>
+
+  <div class="split">
+    <form method="post" class="panel reveal" style="grid-column:1;">
+      <h3>👤 Vos informations</h3>
+      <div class="field">
+        <label>Nom complet *</label>
+        <input type="text" name="name" required value="{{ user['name'] if user }}">
+      </div>
+      <div class="field">
+        <label>Téléphone *</label>
+        <input type="tel" name="phone" required placeholder="77 000 00 00" value="{{ user['phone'] if user }}">
+      </div>
+      <div class="field">
+        <label>Email (optionnel)</label>
+        <input type="email" name="email" value="{{ user['email'] if user }}">
+      </div>
+      <div class="field">
+        <label>Adresse de livraison</label>
+        <input type="text" name="address" placeholder="Quartier, ville…">
+      </div>
+      <div class="field">
+        <label>Note (optionnel)</label>
+        <textarea name="note" placeholder="Précisions sur la livraison…"></textarea>
+      </div>
+
+      <h3 style="margin-top:20px;">💳 Moyen de paiement</h3>
+      <div class="pay-methods">
+        <label class="pay-method">
+          <input type="radio" name="payment_method" value="wave" checked>
+          <span class="pm-ico pm-wave">W</span>
+          <span>
+            <span class="pm-name">Wave</span><br>
+            <span class="pm-desc">Paiement instantané via votre compte Wave</span>
+          </span>
+        </label>
+        <label class="pay-method" style="{{ '' if om_status == 'active' else 'opacity:0.6;' }}">
+          <input type="radio" name="payment_method" value="om" {{ '' if om_status == 'active' else 'disabled' }}>
+          <span class="pm-ico pm-om">OM</span>
+          <span>
+            <span class="pm-name">Orange Money <span class="badge-pill" style="background:rgba(249,115,22,0.15); color:var(--orange);">{{ 'Actif' if om_status == 'active' else 'Bientôt' }}</span></span><br>
+            <span class="pm-desc">{{ 'Paiement instantané via votre numéro Orange' if om_status == 'active' else 'Disponible très prochainement' }}</span>
+          </span>
+        </label>
+        <label class="pay-method">
+          <input type="radio" name="payment_method" value="cod">
+          <span class="pm-ico pm-cod">💵</span>
+          <span>
+            <span class="pm-name">À la livraison</span><br>
+            <span class="pm-desc">Payez en espèces à la réception</span>
+          </span>
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-gold btn-block mt" style="font-size:16px; padding:15px;">Confirmer la commande →</button>
+    </form>
+
+    <div class="panel reveal d1">
+      <h3>Récapitulatif</h3>
+      {% for it in items %}
+      <div class="summary-line">
+        <span>{{ it.product.name }} × {{ it.qty }}</span>
+        <span>{{ it.subtotal | money }}</span>
+      </div>
+      {% endfor %}
+      <div class="summary-line total">
+        <span>Total</span><span>{{ total | money }}</span>
+      </div>
+      <div style="margin-top:14px; padding:12px; background:var(--dark-3); border-radius:10px; font-size:12.5px; color:var(--gray);">
+        🔒 Paiement sécurisé — vos données sont protégées.
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

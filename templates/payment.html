@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Paiement{% endblock %}
+{% block content %}
+
+<section class="section">
+  <div class="payment-card panel reveal">
+    {% if order.payment_method == 'wave' %}
+      <div class="pm-ico-big pm-wave" style="background:linear-gradient(120deg,#38bdf8,#0ea5e9); color:#06222e;">W</div>
+      <h2>Paiement Wave</h2>
+      <p style="color:var(--gray);">Commande n°{{ order.id }} · {{ order.total | money }}</p>
+      <ol class="steps">
+        <li><b>1.</b> Cliquez sur « Payer avec Wave » : vous serez redirigé vers Wave.</li>
+        <li><b>2.</b> Validez le paiement de <b>{{ order.total | money }}</b> depuis votre compte Wave (expéditeur : {{ wave_account }}).</li>
+        <li><b>3.</b> Revenez sur cette page et saisissez la <b>référence de transaction</b> affichée dans votre application Wave.</li>
+        <li><b>4.</b> Cliquez sur « J'ai payé » — votre commande sera vérifiée puis confirmée.</li>
+      </ol>
+      <a href="{{ url_for('payment_wave', oid=order.id) }}" target="_blank" class="btn btn-wave btn-block" style="font-size:16px; padding:15px;">
+        🌊 Payer avec Wave ({{ order.total | money }})
+      </a>
+      <hr style="border:none; border-top:1px dashed rgba(255,255,255,0.12); margin:20px 0;">
+      <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}">
+        <div class="field">
+          <label>Référence de la transaction Wave *</label>
+          <input type="text" name="reference" required placeholder="Ex : WAVE-XXXX-XXXX">
+        </div>
+        <button type="submit" class="btn btn-green btn-block">✓ J'ai payé — Confirmer</button>
+      </form>
+
+    {% elif order.payment_method == 'om' %}
+      <div class="pm-ico-big pm-om" style="background:linear-gradient(120deg,#fb923c,#f97316); color:#2a1200;">OM</div>
+      <h2>Paiement Orange Money</h2>
+      <p style="color:var(--gray);">Commande n°{{ order.id }} · {{ order.total | money }}</p>
+      <ol class="steps">
+        <li><b>1.</b> Composez <b>*144#</b> sur votre téléphone.</li>
+        <li><b>2.</b> Choisissez « Payer » puis saisissez le numéro Bûcheur : <b>77 000 00 00</b>.</li>
+        <li><b>3.</b> Entrez le montant <b>{{ order.total | money }}</b> et validez avec votre code secret.</li>
+        <li><b>4.</b> Saisissez la <b>référence de la transaction</b> reçue par SMS ci-dessous.</li>
+      </ol>
+      <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}">
+        <div class="field">
+          <label>Référence de la transaction Orange Money *</label>
+          <input type="text" name="reference" required placeholder="Ex : OM-XXXX-XXXX">
+        </div>
+        <button type="submit" class="btn btn-om btn-block">✓ J'ai payé — Confirmer</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}

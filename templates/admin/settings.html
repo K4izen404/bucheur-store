@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% block title %}Réglages{% endblock %}
+{% block admin_content %}
+
+<div class="page-title">⚙️ Réglages</div>
+
+<form method="post">
+  <div class="panel" style="max-width:640px;">
+    <h3>🌊 Paiement Wave</h3>
+    <div class="field">
+      <label>Lien de paiement Wave</label>
+      <input type="text" name="wave_link" value="{{ wave_link }}">
+    </div>
+    <p style="font-size:12.5px; color:var(--gray); margin-bottom:16px;">Le client est redirigé vers ce lien pour payer. Actuel : {{ wave_link }}</p>
+
+    <h3>🟠 Paiement Orange Money</h3>
+    <div class="field">
+      <label>Statut</label>
+      <select name="om_status">
+        <option value="en_cours" {{ 'selected' if om_status == 'en_cours' }}>En cours (masqué — « Bientôt »)</option>
+        <option value="active" {{ 'selected' if om_status == 'active' }}>Actif (visible dans le tunnel de commande)</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-gold">💾 Enregistrer les réglages</button>
+  </div>
+</form>
+
+{% endblock %}
