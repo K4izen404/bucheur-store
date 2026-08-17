@@ -5,6 +5,7 @@
 <div class="page-title">⚙️ Réglages</div>
 
 <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="panel" style="max-width:640px;">
     <h3>🌊 Paiement Wave</h3>
     <div class="field">
@@ -23,6 +24,22 @@
     </div>
 
     <button type="submit" class="btn btn-gold">💾 Enregistrer les réglages</button>
+  </div>
+</form>
+
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="panel" style="max-width:640px;">
+    <h3>🔑 Changer mon mot de passe</h3>
+    <div class="field">
+      <label>Ancien mot de passe</label>
+      <input type="password" name="old_password" autocomplete="current-password">
+    </div>
+    <div class="field">
+      <label>Nouveau mot de passe (min. 8 caractères)</label>
+      <input type="password" name="new_password" autocomplete="new-password">
+    </div>
+    <button type="submit" class="btn btn-gold">🔒 Mettre à jour le mot de passe</button>
   </div>
 </form>
 

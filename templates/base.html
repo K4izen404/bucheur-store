@@ -21,7 +21,10 @@
         <a href="https://wa.me/221770000000?text=Bonjour%20B%C3%BBcheur%20Store%2C%20j%27ai%20une%20question" target="_blank">WhatsApp</a>
         {% if session.get('user_id') %}
           <a href="{{ url_for('account') }}" class="{{ 'active' if '/compte' in request.path }}">Mon compte</a>
-          <a href="{{ url_for('logout') }}">Déconnexion</a>
+          <form method="post" action="{{ url_for('logout') }}" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" style="background:none; border:none; color:var(--gray); font-size:14px; padding:8px 14px; border-radius:10px; cursor:pointer; font-family:var(--font);">Déconnexion</button>
+          </form>
         {% else %}
           <a href="{{ url_for('login') }}">Connexion</a>
         {% endif %}

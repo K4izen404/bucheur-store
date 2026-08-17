@@ -1,5 +1,6 @@
 import os
 import secrets
+import time
 from datetime import datetime, timedelta
 
 from flask import (Flask, abort, flash, redirect, render_template, request,
@@ -16,6 +17,10 @@ ALLOWED_EXT = {"png", "jpg", "jpeg", "webp", "gif"}
 
 WAVE_LINK_DEFAULT = "https://pay.wave.com/m/M_-ufM0UEnXp2n/c/sn/"
 
+LOGIN_ATTEMPTS = {}
+MAX_LOGIN_FAILURES = 5
+LOCKOUT_SECONDS = 600
+
 
 def get_setting(key, default):
     row = query("SELECT value FROM settings WHERE key=?", (key,), one=True)
@@ -30,9 +35,23 @@ def om_status():
     return get_setting("om_status", "en_cours")
 
 
+def secret_key():
+    env = os.environ.get("SECRET_KEY")
+    if env:
+        return env
+    key = get_setting("secret_key", None)
+    if not key:
+        key = secrets.token_hex(32)
+        execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('secret_key', ?)", (key,))
+    return key
+
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "bucheur-store-dev-key-change-me")
+app.secret_key = secret_key()
 app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FORCE_HTTPS") == "1"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 init_db()
@@ -44,6 +63,12 @@ def cart_count():
     return sum(item["qty"] for item in session.get("cart", {}).values())
 
 
+def generate_csrf():
+    if "_csrf" not in session:
+        session["_csrf"] = secrets.token_hex(32)
+    return session["_csrf"]
+
+
 @app.context_processor
 def inject_globals():
     return {
@@ -51,7 +76,60 @@ def inject_globals():
         "wave_link": wave_link(),
         "wave_account": WAVE_ACCOUNT,
         "om_status": om_status(),
+        "csrf_token": generate_csrf,
     }
+
+
+@app.before_request
+def csrf_protect():
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        token = request.form.get("csrf_token", "")
+        if not token or not secrets.compare_digest(token, session.get("_csrf", "")):
+            flash("Session expirée, veuillez réessayer.", "error")
+            return redirect(request.referrer or url_for("home"))
+
+
+@app.after_request
+def security_headers(resp):
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+        "connect-src 'self'; frame-ancestors 'none'")
+    if request.is_secure:
+        resp.headers["Strict-Transport-Security"] = "max-age=31536000"
+    return resp
+
+
+def login_limiter(key):
+    now = time.time()
+    entry = LOGIN_ATTEMPTS.get(key)
+    if entry and entry["count"] >= MAX_LOGIN_FAILURES:
+        if now - entry["t0"] < LOCKOUT_SECONDS:
+            return False
+        del LOGIN_ATTEMPTS[key]
+    return True
+
+
+def login_failure(key):
+    now = time.time()
+    entry = LOGIN_ATTEMPTS.get(key)
+    if not entry or now - entry["t0"] > LOCKOUT_SECONDS:
+        LOGIN_ATTEMPTS[key] = {"count": 1, "t0": now}
+    else:
+        entry["count"] += 1
+
+
+def login_success(key):
+    LOGIN_ATTEMPTS.pop(key, None)
+
+
+def order_access(order):
+    if session.get("user_id") and order["user_id"] == session.get("user_id"):
+        return True
+    return order["session_key"] and order["session_key"] == session.get("order_session")
 
 
 def login_required(f):
@@ -93,6 +171,18 @@ app.jinja_env.globals["ORDER_STATUS"] = ORDER_STATUS
 
 def allowed_file(name):
     return "." in name and name.rsplit(".", 1)[1].lower() in ALLOWED_EXT
+
+
+def is_real_image(f):
+    try:
+        from PIL import Image
+        f.seek(0)
+        img = Image.open(f)
+        img.verify()
+        f.seek(0)
+        return True
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------- client
@@ -265,11 +355,14 @@ def checkout():
             flash("Orange Money sera disponible très bientôt. Choisissez Wave ou le paiement à la livraison.", "warning")
             return redirect(url_for("checkout"))
 
+        if not session.get("order_session"):
+            session["order_session"] = secrets.token_hex(16)
         oid = execute(
-            """INSERT INTO orders (user_id, customer_name, customer_phone, customer_email,
+            """INSERT INTO orders (user_id, session_key, customer_name, customer_phone, customer_email,
                address, total, payment_method, note)
-               VALUES (?,?,?,?,?,?,?,?)""",
-            (session.get("user_id"), name, phone, email, address, total, method, note))
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (session.get("user_id"), session["order_session"], name, phone, email, address,
+             total, method, note))
         for it in items:
             execute(
                 """INSERT INTO order_items (order_id, product_id, product_name, quantity, price)
@@ -294,6 +387,8 @@ def payment(oid):
     order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
     if not order:
         abort(404)
+    if not order_access(order):
+        abort(404)
     if order["payment_method"] == "cod":
         return redirect(url_for("order_success", oid=oid))
     return render_template("payment.html", order=order)
@@ -304,6 +399,8 @@ def payment_wave(oid):
     order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
     if not order or order["payment_method"] != "wave":
         abort(404)
+    if not order_access(order):
+        abort(404)
     return redirect(wave_link())
 
 
@@ -311,6 +408,8 @@ def payment_wave(oid):
 def payment_confirm(oid):
     order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
     if not order:
+        abort(404)
+    if not order_access(order):
         abort(404)
     ref = request.form.get("reference", "").strip()
     if not ref:
@@ -326,6 +425,8 @@ def payment_confirm(oid):
 def order_success(oid):
     order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
     if not order:
+        abort(404)
+    if not order_access(order):
         abort(404)
     items = query("SELECT * FROM order_items WHERE order_id=?", (oid,))
     return render_template("order_success.html", order=order, items=items)
@@ -369,16 +470,25 @@ def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        key = f"{email}|{request.remote_addr}"
+        if not login_limiter(key):
+            flash("Trop de tentatives. Réessayez dans 10 minutes.", "error")
+            return redirect(url_for("login"))
         user = query("SELECT * FROM users WHERE email=?", (email,), one=True)
         if user and check_password_hash(user["password_hash"], password):
+            login_success(key)
             session["user_id"] = user["id"]
             flash(f"Bon retour, {user['name']} !", "success")
-            return redirect(request.args.get("next") or url_for("home"))
+            nxt = request.args.get("next") or url_for("home")
+            if not nxt.startswith("/") or nxt.startswith("//"):
+                nxt = url_for("home")
+            return redirect(nxt)
+        login_failure(key)
         flash("Email ou mot de passe incorrect.", "error")
     return render_template("auth/login.html")
 
 
-@app.route("/deconnexion")
+@app.route("/deconnexion", methods=["POST"])
 def logout():
     session.clear()
     flash("Vous êtes déconnecté.", "info")
@@ -402,10 +512,16 @@ def admin_login():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        key = f"admin|{request.remote_addr}"
+        if not login_limiter(key):
+            flash("Trop de tentatives. Réessayez dans 10 minutes.", "error")
+            return redirect(url_for("admin_login"))
         user = query("SELECT * FROM users WHERE email=? AND is_admin=1", (email,), one=True)
         if user and check_password_hash(user["password_hash"], password):
+            login_success(key)
             session["user_id"] = user["id"]
             return redirect(url_for("admin_dashboard"))
+        login_failure(key)
         flash("Identifiants administrateur incorrects.", "error")
     return render_template("admin/login.html")
 
@@ -505,7 +621,10 @@ def _save_product(p=None):
     )
     image = p["image"] if p else None
     f = request.files.get("image")
-    if f and f.filename and allowed_file(f.filename):
+    if f and f.filename:
+        if not (allowed_file(f.filename) and is_real_image(f)):
+            flash("Image invalide : le fichier n'est pas une vraie image.", "error")
+            return redirect(request.referrer or url_for("admin_products"))
         fn = secure_filename(f.filename)
         image = f"uploads/{secrets.token_hex(4)}_{fn}"
         f.save(os.path.join(UPLOAD_DIR, os.path.basename(image)))
@@ -602,7 +721,22 @@ def admin_settings():
         om_status_val = request.form.get("om_status", "en_cours")
         execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('wave_link', ?)", (wave,))
         execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('om_status', ?)", (om_status_val,))
-        flash("Paramètres enregistrés.", "success")
+
+        old_pw = request.form.get("old_password", "")
+        new_pw = request.form.get("new_password", "")
+        if old_pw or new_pw:
+            user = query("SELECT * FROM users WHERE id=?", (session["user_id"],), one=True)
+            if len(new_pw) < 8:
+                flash("Le nouveau mot de passe doit faire au moins 8 caractères.", "error")
+                return redirect(url_for("admin_settings"))
+            if not user or not check_password_hash(user["password_hash"], old_pw):
+                flash("Ancien mot de passe incorrect.", "error")
+                return redirect(url_for("admin_settings"))
+            execute("UPDATE users SET password_hash=? WHERE id=?",
+                    (generate_password_hash(new_pw), user["id"]))
+            flash("Mot de passe changé avec succès.", "success")
+        else:
+            flash("Paramètres enregistrés.", "success")
     return render_template("admin/settings.html", wave_link=wave_link(), om_status=om_status())
 
 
@@ -613,13 +747,15 @@ def seed():
     if conn.execute("SELECT COUNT(*) c FROM products").fetchone()["c"] > 0:
         conn.close()
         return
-    import sqlite3
     admin = conn.execute("SELECT id FROM users WHERE email='admin@bucheur.sn'").fetchone()
     if not admin:
+        admin_pw = os.environ.get("ADMIN_PASSWORD") or secrets.token_urlsafe(10)
         conn.execute(
             "INSERT INTO users (name, email, phone, password_hash, is_admin) VALUES (?,?,?,?,1)",
             ("Bûcheur", "admin@bucheur.sn", "770000000",
-             generate_password_hash("bucheur2026")))
+             generate_password_hash(admin_pw)))
+        print(f"Compte admin créé : admin@bucheur.sn / {admin_pw}")
+        print("(changez ce mot de passe dans Admin → Réglages)")
     conn.commit()
     conn.close()
 

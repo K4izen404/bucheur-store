@@ -20,7 +20,20 @@ Le site tourne sur http://127.0.0.1:5000
 |---|---|
 | admin@bucheur.sn | bucheur2026 |
 
-⚠️ À changer avant mise en production (réglages → ou directement dans la base).
+⚠️ **Changez ce mot de passe dès la mise en ligne** : Admin → Réglages → « Changer mon mot de passe ».
+
+## Sécurité
+
+- **Secret key** : générée aléatoirement au premier lancement (stockée en base). Surchargée par la variable d'environnement `SECRET_KEY`.
+- **CSRF** : jeton requis sur tous les formulaires (POST) — refusés sans jeton valide.
+- **IDOR** : les pages de commande/paiement ne sont accessibles qu'au client concerné (session ou compte connecté).
+- **Brute force** : verrouillage 10 min après 5 échecs de connexion (client et admin).
+- **Upload** : extensions filtrées + vérification du contenu réel de l'image (Pillow).
+- **En-têtes HTTP** : X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy, Content-Security-Policy.
+- **Mots de passe** : hachés (werkzeug), jamais en clair.
+- **Injection SQL / XSS** : requêtes paramétrées + échappement automatique Jinja2.
+
+Variables d'environnement utiles : `SECRET_KEY`, `ADMIN_PASSWORD` (seed), `FORCE_HTTPS=1` (cookie Secure + HSTS).
 
 ## Structure
 

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
+    session_key TEXT,
     customer_name TEXT NOT NULL,
     customer_phone TEXT NOT NULL,
     customer_email TEXT,
@@ -93,6 +94,10 @@ def get_db():
 def init_db():
     conn = get_db()
     conn.executescript(SCHEMA)
+    try:
+        conn.execute("ALTER TABLE orders ADD COLUMN session_key TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 

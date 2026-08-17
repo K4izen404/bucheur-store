@@ -42,6 +42,7 @@
 
       {% if p.stock > 0 %}
         <form method="post" action="{{ url_for('cart_add', pid=p.id) }}" data-add-cart>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="qty-row">
             <label>Quantité :</label>
             <button type="button" class="cart-qty-btn" data-qty-btn="#qty-{{ p.id }}" data-dir="minus" style="background:var(--dark-3); border:1px solid rgba(255,255,255,0.12); color:var(--white); width:34px; height:34px; border-radius:9px; cursor:pointer; font-size:16px;">−</button>

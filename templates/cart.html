@@ -27,12 +27,14 @@
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
           <form method="post" action="{{ url_for('cart_update', pid=it.product.id) }}" style="display:flex; align-items:center; gap:8px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="cart-qty">
               <input type="number" name="qty" value="{{ it.qty }}" min="0" max="{{ it.product.stock }}">
               <button type="submit" class="btn btn-dark btn-sm">OK</button>
             </div>
           </form>
           <form method="post" action="{{ url_for('cart_update', pid=it.product.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="qty" value="0">
             <button type="submit" class="btn btn-sm" style="background:transparent; border:none; font-size:18px; color:var(--red); cursor:pointer;">✕</button>
           </form>

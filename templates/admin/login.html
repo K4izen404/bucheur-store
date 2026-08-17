@@ -18,6 +18,7 @@
         {% endfor %}
       {% endwith %}
       <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="field">
           <label>Email</label>
           <input type="email" name="email" required placeholder="admin@bucheur.sn">

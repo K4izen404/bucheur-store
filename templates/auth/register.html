@@ -8,6 +8,7 @@
     <h1>Créer un compte 🚀</h1>
     <p class="sub">Suivez vos commandes et achetez plus vite.</p>
     <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="field">
         <label>Nom complet</label>
         <input type="text" name="name" required placeholder="Votre nom">

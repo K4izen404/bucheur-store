@@ -5,8 +5,11 @@
 <section class="section">
   <div class="section-head reveal">
     <h2>👤 Mon compte</h2>
-    <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">Déconnexion</a>
+    <a href="#" onclick="document.getElementById('logout-form').submit(); return false;" class="btn btn-outline btn-sm">Déconnexion</a>
   </div>
+  <form id="logout-form" method="post" action="{{ url_for('logout') }}" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
 
   <div class="panel reveal" style="max-width:560px; margin-bottom:30px;">
     <h3>Profil</h3>

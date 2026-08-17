@@ -9,6 +9,7 @@
 
   <div class="split">
     <form method="post" class="panel reveal" style="grid-column:1;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <h3>👤 Vos informations</h3>
       <div class="field">
         <label>Nom complet *</label>

@@ -19,6 +19,7 @@
       </a>
       <hr style="border:none; border-top:1px dashed rgba(255,255,255,0.12); margin:20px 0;">
       <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="field">
           <label>Référence de la transaction Wave *</label>
           <input type="text" name="reference" required placeholder="Ex : WAVE-XXXX-XXXX">
@@ -37,6 +38,7 @@
         <li><b>4.</b> Saisissez la <b>référence de la transaction</b> reçue par SMS ci-dessous.</li>
       </ol>
       <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="field">
           <label>Référence de la transaction Orange Money *</label>
           <input type="text" name="reference" required placeholder="Ex : OM-XXXX-XXXX">

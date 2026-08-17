@@ -52,6 +52,7 @@
 </div>
 
 <form method="post" action="{{ url_for('admin_order_status', oid=order.id) }}" class="panel" style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="field" style="margin:0;">
     <label>Statut de la commande</label>
     <select name="order_status">

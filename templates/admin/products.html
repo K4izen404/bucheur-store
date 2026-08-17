@@ -28,6 +28,7 @@
       <td style="white-space:nowrap;">
         <a href="{{ url_for('admin_product_edit', pid=p.id) }}" class="btn btn-outline btn-sm">Modifier</a>
         <form method="post" action="{{ url_for('admin_product_delete', pid=p.id) }}" style="display:inline;" onsubmit="return confirm('Supprimer ce produit ?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-red btn-sm">Suppr.</button>
         </form>
       </td>
