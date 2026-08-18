@@ -5,13 +5,13 @@
 <div class="admin-layout">
   <aside class="sidebar">
     <div class="brand">
-      <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Store">
-      <span>BÛCHEUR<em>STORE</em></span>
+      <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Études & Business">
+      <span>BÛCHEUR<em>ÉTUDES &amp; BUSINESS</em></span>
     </div>
     <a href="{{ url_for('admin_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_dashboard' }}">📊 Tableau de bord</a>
     <a href="{{ url_for('admin_products') }}" class="{{ 'active' if request.endpoint in ('admin_products', 'admin_product_add', 'admin_product_edit') }}">📦 Produits</a>
     <a href="{{ url_for('admin_orders') }}" class="{{ 'active' if request.endpoint in ('admin_orders', 'admin_order_detail') }}">🧾 Commandes</a>
-    <a href="{{ url_for('admin_customers') }}" class="{{ 'active' if request.endpoint == 'admin_customers' }}">👥 Clients</a>
+    <a href="{{ url_for('admin_users') }}" class="{{ 'active' if request.endpoint in ('admin_users', 'admin_user_add', 'admin_user_edit', 'admin_user_delete') }}">👥 Utilisateurs</a>
     <a href="{{ url_for('admin_settings') }}" class="{{ 'active' if request.endpoint == 'admin_settings' }}">⚙️ Réglages</a>
     <div class="spacer"></div>
     <a href="{{ url_for('home') }}" target="_blank">🌐 Voir le site</a>

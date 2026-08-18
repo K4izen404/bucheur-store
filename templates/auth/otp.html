@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Vérification{% endblock %}
+{% block content %}
+
+<div class="auth-wrap">
+  <div class="auth-card reveal">
+    <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Études & Business" style="width:64px; height:64px; border-radius:14px; margin:0 auto 16px; display:block;">
+    <h1>Code de vérification 🔐</h1>
+    <p class="sub">
+      {{ user['name'] }}, un code à 6 chiffres a été envoyé
+      {% if user['email'] %}à <b>{{ user['email'] }}</b>{% else %}par SMS au <b>+221 {{ user['phone'] }}</b>{% endif %}.
+    </p>
+
+    {% if dev_code %}
+      <div style="background:rgba(249,115,22,0.12); border:1px dashed rgba(249,115,22,0.5); border-radius:12px; padding:14px; text-align:center; margin-bottom:18px;">
+        <div style="font-size:12px; color:var(--orange); margin-bottom:6px;">⚠️ Mode développement — aucun email/SMS réel configuré. Votre code :</div>
+        <div style="font-size:26px; font-weight:800; letter-spacing:8px; color:var(--gold);">{{ dev_code }}</div>
+      </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('otp_verify') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field">
+        <label>Code à 6 chiffres</label>
+        <input type="text" name="otp" required maxlength="6" placeholder="••••••" inputmode="numeric"
+               style="text-align:center; font-size:24px; letter-spacing:10px;">
+      </div>
+      <button type="submit" class="btn btn-gold btn-block">Vérifier mon compte ✓</button>
+    </form>
+
+    <form method="post" action="{{ url_for('otp_resend') }}" style="margin-top:14px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline btn-block btn-sm">🔄 Renvoyer le code</button>
+    </form>
+    <p class="small" style="text-align:center; margin-top:10px;">Le code est valable 10 minutes.</p>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "admin/base.html" %}
+{% block title %}Utilisateurs{% endblock %}
+{% block admin_content %}
+
+<div class="page-title">👥 Utilisateurs</div>
+
+<div class="panel">
+  <h3>➕ Ajouter un utilisateur</h3>
+  <form method="post" action="{{ url_for('admin_user_add') }}" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label>Nom complet *</label>
+      <input type="text" name="name" required placeholder="Nom du client ou employé">
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" name="email" placeholder="vous@email.com">
+    </div>
+    <div class="field">
+      <label>Téléphone</label>
+      <input type="text" name="phone" placeholder="77 123 45 67">
+    </div>
+    <div class="field">
+      <label>Mot de passe * (min. 6 caractères)</label>
+      <input type="text" name="password" required placeholder="Mot de passe initial">
+    </div>
+    <div class="field full">
+      <div class="checkbox-row">
+        <input type="checkbox" name="is_admin" id="new-admin">
+        <label for="new-admin" style="color:var(--white); margin:0;">🛠️ Donner les droits administrateur</label>
+      </div>
+    </div>
+    <div class="full">
+      <button type="submit" class="btn btn-gold">💾 Créer l'utilisateur</button>
+    </div>
+  </form>
+</div>
+
+<div class="panel">
+  {% if users %}
+  <table>
+    <tr>
+      <th>Utilisateur</th><th>Identifiants</th><th>Rôle</th><th>Commandes</th><th>Total dépensé</th><th>Inscrit le</th><th>Actions</th>
+    </tr>
+    {% for u in users %}
+    <tr>
+      <td><b>{{ u.name }}</b></td>
+      <td>
+        <div>{{ u.email or '—' }}</div>
+        <div style="color:var(--gray); font-size:12px;">{{ u.phone or '—' }}</div>
+      </td>
+      <td>
+        {% if u.is_admin %}<span class="badge-pill badge-gold">🛠️ Admin</span>
+        {% else %}<span class="badge-pill badge-order">👤 Client</span>{% endif %}
+        {% if not u.verified %}<span class="badge-pill badge-pending" title="Compte non vérifié">OTP en attente</span>{% endif %}
+      </td>
+      <td>{{ u.orders_count }}</td>
+      <td style="color:var(--gold); font-weight:700;">{{ (u.spent or 0) | money }}</td>
+      <td style="color:var(--gray); font-size:12.5px;">{{ u.created_at[:10] }}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-outline btn-sm" onclick="openEdit({{ u.id }})">Modifier</button>
+        {% if u.id != session.get('user_id') %}
+        <form method="post" action="{{ url_for('admin_user_delete', uid=u.id) }}" style="display:inline;" onsubmit="return confirm('Supprimer « {{ u.name }} » ? Ses commandes seront conservées.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-red btn-sm">Suppr.</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty" style="text-align:center; padding:40px; color:var(--gray);">
+    <div style="font-size:44px; margin-bottom:10px;">👥</div>
+    <p>Aucun utilisateur pour le moment.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% for u in users %}
+<div id="edit-{{ u.id }}" style="display:none;">
+  <form method="post" action="{{ url_for('admin_user_edit', uid=u.id) }}" class="form-grid panel">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label>Nom complet *</label>
+      <input type="text" name="name" required value="{{ u.name }}">
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" name="email" value="{{ u.email or '' }}">
+    </div>
+    <div class="field">
+      <label>Téléphone</label>
+      <input type="text" name="phone" value="{{ u.phone or '' }}">
+    </div>
+    <div class="field">
+      <label>Nouveau mot de passe (laisser vide pour ne pas changer)</label>
+      <input type="text" name="new_password" placeholder="Min. 6 caractères">
+    </div>
+    <div class="field full">
+      <div class="checkbox-row">
+        <input type="checkbox" name="is_admin" id="edit-admin-{{ u.id }}" {{ 'checked' if u.is_admin }}>
+        <label for="edit-admin-{{ u.id }}" style="color:var(--white); margin:0;">🛠️ Droits administrateur</label>
+      </div>
+    </div>
+    <div class="full">
+      <button type="submit" class="btn btn-gold">💾 Enregistrer</button>
+      <button type="button" class="btn btn-outline" onclick="closeEdit()">Annuler</button>
+    </div>
+  </form>
+</div>
+{% endfor %}
+
+<script>
+  function openEdit(id) {
+    document.querySelectorAll('[id^="edit-"]').forEach((el) => { el.style.display = "none"; });
+    document.getElementById("edit-" + id).style.display = "block";
+    document.getElementById("edit-" + id).scrollIntoView({ behavior: "smooth" });
+  }
+  function closeEdit() {
+    document.querySelectorAll('[id^="edit-"]').forEach((el) => { el.style.display = "none"; });
+  }
+</script>
+
+{% endblock %}

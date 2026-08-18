@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin · Bûcheur Store</title>
+  <title>Admin · Bûcheur Études & Business</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 </head>
 <body>
   <div class="admin-login-wrap">
     <div class="admin-login-card">
-      <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Store" style="width:60px; height:60px; border-radius:13px; margin:0 auto 16px; display:block;">
+      <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Études & Business" style="width:60px; height:60px; border-radius:13px; margin:0 auto 16px; display:block;">
       <h1>🛠️ Espace Admin</h1>
       <p class="sub">Accès réservé à Bûcheur</p>
       {% with messages = get_flashed_messages(with_categories=true) %}

@@ -1,7 +1,10 @@
 import os
+import re
 import secrets
+import smtplib
 import time
 from datetime import datetime, timedelta
+from email.mime.text import MIMEText
 
 from flask import (Flask, abort, flash, redirect, render_template, request,
                    session, url_for)
@@ -130,6 +133,70 @@ def order_access(order):
     if session.get("user_id") and order["user_id"] == session.get("user_id"):
         return True
     return order["session_key"] and order["session_key"] == session.get("order_session")
+
+
+# ------------------------------------------------------------------ OTP
+
+OTP_TTL_MINUTES = 10
+
+
+def normalize_phone(phone):
+    digits = re.sub(r"\D", "", phone or "")
+    if digits.startswith("221") and len(digits) > 9:
+        digits = digits[3:]
+    if len(digits) == 9 and digits[0] in "370757678":
+        return digits
+    return phone.strip() if phone else ""
+
+
+def send_email(to_addr, subject, body):
+    host = os.environ.get("SMTP_HOST")
+    if not host:
+        return False
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER", "")
+    password = os.environ.get("SMTP_PASSWORD", "")
+    sender = os.environ.get("SMTP_FROM", user)
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = to_addr
+    try:
+        with smtplib.SMTP(host, port, timeout=10) as s:
+            if port == 587 or port == 25:
+                s.starttls()
+            if user:
+                s.login(user, password)
+            s.sendmail(sender, [to_addr], msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def generate_otp(uid):
+    code = f"{secrets.randbelow(1000000):06d}"
+    expires = (datetime.now() + timedelta(minutes=OTP_TTL_MINUTES)).strftime("%Y-%m-%d %H:%M:%S")
+    execute("UPDATE users SET otp_code=?, otp_expires=?, verified=0 WHERE id=?",
+            (code, expires, uid))
+    return code
+
+
+def send_otp(user):
+    code = generate_otp(user["id"])
+    label = user["email"] or f"+221 {user['phone']}"
+    body = f"""Bonjour {user['name']},
+
+Votre code de vérification Bûcheur Études & Business est :
+
+    {code}
+
+Ce code est valable {OTP_TTL_MINUTES} minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.
+
+— Bûcheur Études & Business
+Rufisque & Nord-Foire"""
+    if user["email"]:
+        return send_email(user["email"], "Votre code de vérification Bûcheur", body), code
+    return False, code
 
 
 def login_required(f):
@@ -441,26 +508,91 @@ def register():
         return redirect(url_for("account"))
     if request.method == "POST":
         name = request.form.get("name", "").strip()
-        email = request.form.get("email", "").strip().lower()
-        phone = request.form.get("phone", "").strip()
+        id_type = request.form.get("id_type", "")
+        identifier = request.form.get("identifier", "").strip()
         password = request.form.get("password", "")
         confirm = request.form.get("confirm", "")
-        if not name or not email or not password:
+
+        if not name or not identifier or not password:
             flash("Tous les champs sont obligatoires.", "error")
             return redirect(url_for("register"))
         if password != confirm:
             flash("Les mots de passe ne correspondent pas.", "error")
             return redirect(url_for("register"))
-        if query("SELECT id FROM users WHERE email=?", (email,), one=True):
-            flash("Un compte existe déjà avec cet email.", "error")
+        if len(password) < 6:
+            flash("Le mot de passe doit faire au moins 6 caractères.", "error")
             return redirect(url_for("register"))
+        if id_type not in ("email", "phone"):
+            flash("Choisissez un identifiant valide.", "error")
+            return redirect(url_for("register"))
+
+        if id_type == "email":
+            email = identifier.lower()
+            phone = None
+            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+                flash("Adresse email invalide.", "error")
+                return redirect(url_for("register"))
+            if query("SELECT id FROM users WHERE email=?", (email,), one=True):
+                flash("Un compte existe déjà avec cet email.", "error")
+                return redirect(url_for("register"))
+        else:
+            email = None
+            phone = normalize_phone(identifier)
+            if not phone or len(re.sub(r"\D", "", phone)) != 9:
+                flash("Numéro de téléphone invalide (ex : 77 123 45 67).", "error")
+                return redirect(url_for("register"))
+            if query("SELECT id FROM users WHERE phone=?", (phone,), one=True):
+                flash("Un compte existe déjà avec ce numéro.", "error")
+                return redirect(url_for("register"))
+
         uid = execute(
-            "INSERT INTO users (name, email, phone, password_hash) VALUES (?,?,?,?)",
+            "INSERT INTO users (name, email, phone, password_hash, verified) VALUES (?,?,?,?,0)",
             (name, email, phone, generate_password_hash(password)))
-        session["user_id"] = uid
-        flash(f"Bienvenue {name} ! Votre compte est créé.", "success")
-        return redirect(url_for("home"))
+        user = query("SELECT * FROM users WHERE id=?", (uid,), one=True)
+        delivered, code = send_otp(user)
+        session["pending_otp"] = uid
+        flash("Vérifiez votre email ou votre téléphone : un code de confirmation vous a été envoyé.", "info")
+        return render_template("auth/otp.html", user=user, dev_code=code if not delivered else None)
+
     return render_template("auth/register.html")
+
+
+@app.route("/verification", methods=["POST"])
+def otp_verify():
+    uid = session.get("pending_otp")
+    if not uid:
+        flash("Veuillez d'abord créer votre compte.", "warning")
+        return redirect(url_for("register"))
+    user = query("SELECT * FROM users WHERE id=?", (uid,), one=True)
+    if not user:
+        session.pop("pending_otp", None)
+        return redirect(url_for("register"))
+    code = request.form.get("otp", "").strip()
+    expires = datetime.strptime(user["otp_expires"], "%Y-%m-%d %H:%M:%S") if user["otp_expires"] else None
+    if not code or code != user["otp_code"]:
+        flash("Code incorrect. Vérifiez le code reçu.", "error")
+        return render_template("auth/otp.html", user=user, dev_code=None)
+    if not expires or expires < datetime.now():
+        flash("Ce code a expiré. Demandez-en un nouveau.", "error")
+        return render_template("auth/otp.html", user=user, dev_code=None)
+    execute("UPDATE users SET verified=1, otp_code=NULL, otp_expires=NULL WHERE id=?", (uid,))
+    session.pop("pending_otp", None)
+    session["user_id"] = uid
+    flash(f"Compte vérifié. Bienvenue {user['name']} !", "success")
+    return redirect(url_for("account"))
+
+
+@app.route("/verification/renvoyer", methods=["POST"])
+def otp_resend():
+    uid = session.get("pending_otp")
+    if not uid:
+        return redirect(url_for("register"))
+    user = query("SELECT * FROM users WHERE id=?", (uid,), one=True)
+    if not user:
+        return redirect(url_for("register"))
+    delivered, code = send_otp(user)
+    flash("Un nouveau code vient d'être envoyé.", "info")
+    return render_template("auth/otp.html", user=user, dev_code=code if not delivered else None)
 
 
 @app.route("/connexion", methods=["GET", "POST"])
@@ -468,14 +600,15 @@ def login():
     if session.get("user_id"):
         return redirect(url_for("home"))
     if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
+        identifier = request.form.get("identifier", "").strip().lower()
         password = request.form.get("password", "")
-        key = f"{email}|{request.remote_addr}"
+        key = f"{identifier}|{request.remote_addr}"
         if not login_limiter(key):
             flash("Trop de tentatives. Réessayez dans 10 minutes.", "error")
             return redirect(url_for("login"))
-        user = query("SELECT * FROM users WHERE email=?", (email,), one=True)
-        if user and check_password_hash(user["password_hash"], password):
+        user = query(
+            "SELECT * FROM users WHERE email=? OR phone=?", (identifier, identifier), one=True)
+        if user and user["verified"] and check_password_hash(user["password_hash"], password):
             login_success(key)
             session["user_id"] = user["id"]
             flash(f"Bon retour, {user['name']} !", "success")
@@ -484,7 +617,7 @@ def login():
                 nxt = url_for("home")
             return redirect(nxt)
         login_failure(key)
-        flash("Email ou mot de passe incorrect.", "error")
+        flash("Identifiant ou mot de passe incorrect.", "error")
     return render_template("auth/login.html")
 
 
@@ -701,16 +834,103 @@ def admin_order_status(oid):
     return redirect(url_for("admin_order_detail", oid=oid))
 
 
-@app.route("/admin/clients")
+@app.route("/admin/utilisateurs")
 @admin_required
-def admin_customers():
-    customers = query(
-        """SELECT u.id, u.name, u.email, u.phone, u.created_at,
-                  COUNT(o.id) orders_count, COALESCE(SUM(CASE WHEN o.payment_status='paid' THEN o.total END),0) spent
+def admin_users():
+    users = query(
+        """SELECT u.id, u.name, u.email, u.phone, u.is_admin, u.verified, u.created_at,
+                  COUNT(o.id) orders_count,
+                  COALESCE(SUM(CASE WHEN o.payment_status='paid' THEN o.total END),0) spent
            FROM users u LEFT JOIN orders o ON o.user_id = u.id
-           WHERE u.is_admin = 0
-           GROUP BY u.id ORDER BY spent DESC""")
-    return render_template("admin/customers.html", customers=customers)
+           GROUP BY u.id ORDER BY u.is_admin DESC, u.created_at DESC""")
+    return render_template("admin/users.html", users=users)
+
+
+@app.route("/admin/utilisateurs/ajouter", methods=["POST"])
+@admin_required
+def admin_user_add():
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower() or None
+    phone = request.form.get("phone", "").strip() or None
+    password = request.form.get("password", "")
+    is_admin = 1 if request.form.get("is_admin") else 0
+
+    if not name or not password or len(password) < 6:
+        flash("Nom et mot de passe (min. 6 caractères) obligatoires.", "error")
+        return redirect(url_for("admin_users"))
+    if email and query("SELECT id FROM users WHERE email=?", (email,), one=True):
+        flash("Cet email est déjà utilisé.", "error")
+        return redirect(url_for("admin_users"))
+    if phone:
+        phone = normalize_phone(phone)
+        if query("SELECT id FROM users WHERE phone=?", (phone,), one=True):
+            flash("Ce téléphone est déjà utilisé.", "error")
+            return redirect(url_for("admin_users"))
+    execute("INSERT INTO users (name, email, phone, password_hash, is_admin, verified) VALUES (?,?,?,?,?,1)",
+            (name, email, phone, generate_password_hash(password), is_admin))
+    flash(f"Utilisateur « {name} » créé.", "success")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/utilisateurs/<int:uid>/modifier", methods=["POST"])
+@admin_required
+def admin_user_edit(uid):
+    user = query("SELECT * FROM users WHERE id=?", (uid,), one=True)
+    if not user:
+        abort(404)
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower() or None
+    phone = request.form.get("phone", "").strip() or None
+    is_admin = 1 if request.form.get("is_admin") else 0
+    new_password = request.form.get("new_password", "")
+
+    if not name:
+        flash("Le nom est obligatoire.", "error")
+        return redirect(url_for("admin_users"))
+    if email and query("SELECT id FROM users WHERE email=? AND id != ?", (email, uid), one=True):
+        flash("Cet email est déjà utilisé par un autre compte.", "error")
+        return redirect(url_for("admin_users"))
+    if phone:
+        phone = normalize_phone(phone)
+        if query("SELECT id FROM users WHERE phone=? AND id != ?", (phone, uid), one=True):
+            flash("Ce téléphone est déjà utilisé par un autre compte.", "error")
+            return redirect(url_for("admin_users"))
+    if user["is_admin"] and not is_admin and query(
+            "SELECT COUNT(*) c FROM users WHERE is_admin=1", one=True)["c"] <= 1:
+        flash("Impossible de retirer le rôle admin : c'est le dernier administrateur.", "error")
+        return redirect(url_for("admin_users"))
+
+    if new_password:
+        if len(new_password) < 6:
+            flash("Le nouveau mot de passe doit faire au moins 6 caractères.", "error")
+            return redirect(url_for("admin_users"))
+        execute("UPDATE users SET name=?, email=?, phone=?, is_admin=?, password_hash=? WHERE id=?",
+                (name, email, phone, is_admin, generate_password_hash(new_password), uid))
+        flash("Utilisateur modifié (mot de passe changé).", "success")
+    else:
+        execute("UPDATE users SET name=?, email=?, phone=?, is_admin=? WHERE id=?",
+                (name, email, phone, is_admin, uid))
+        flash("Utilisateur modifié.", "success")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/utilisateurs/<int:uid>/supprimer", methods=["POST"])
+@admin_required
+def admin_user_delete(uid):
+    user = query("SELECT * FROM users WHERE id=?", (uid,), one=True)
+    if not user:
+        abort(404)
+    if uid == session["user_id"]:
+        flash("Vous ne pouvez pas supprimer votre propre compte.", "error")
+        return redirect(url_for("admin_users"))
+    if user["is_admin"] and query(
+            "SELECT COUNT(*) c FROM users WHERE is_admin=1", one=True)["c"] <= 1:
+        flash("Impossible de supprimer le dernier administrateur.", "error")
+        return redirect(url_for("admin_users"))
+    execute("UPDATE orders SET user_id=NULL WHERE user_id=?", (uid,))
+    execute("DELETE FROM users WHERE id=?", (uid,))
+    flash(f"Utilisateur « {user['name']} » supprimé.", "info")
+    return redirect(url_for("admin_users"))
 
 
 @app.route("/admin/settings", methods=["GET", "POST"])

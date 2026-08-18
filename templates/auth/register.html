@@ -4,9 +4,9 @@
 
 <div class="auth-wrap">
   <div class="auth-card reveal">
-    <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Store" style="width:64px; height:64px; border-radius:14px; margin:0 auto 16px; display:block;">
+    <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Études & Business" style="width:64px; height:64px; border-radius:14px; margin:0 auto 16px; display:block;">
     <h1>Créer un compte 🚀</h1>
-    <p class="sub">Suivez vos commandes et achetez plus vite.</p>
+    <p class="sub">Choisissez votre identifiant : un code de vérification (OTP) vous sera envoyé pour finaliser le compte.</p>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="field">
@@ -14,12 +14,17 @@
         <input type="text" name="name" required placeholder="Votre nom">
       </div>
       <div class="field">
-        <label>Email</label>
-        <input type="email" name="email" required placeholder="vous@email.com">
-      </div>
-      <div class="field">
-        <label>Téléphone</label>
-        <input type="tel" name="phone" placeholder="77 000 00 00">
+        <label>Identifiant de connexion</label>
+        <div class="id-choices" id="id-choices">
+          <div class="id-choice selected" data-type="email" onclick="selectId('email')">
+            <span class="ico">✉️</span>Email
+          </div>
+          <div class="id-choice" data-type="phone" onclick="selectId('phone')">
+            <span class="ico">📱</span>Téléphone
+          </div>
+        </div>
+        <input type="hidden" name="id_type" id="id_type" value="email">
+        <input type="text" name="identifier" id="identifier" required placeholder="vous@email.com" autocomplete="username">
       </div>
       <div class="field">
         <label>Mot de passe</label>
@@ -29,10 +34,22 @@
         <label>Confirmer le mot de passe</label>
         <input type="password" name="confirm" required placeholder="••••••••">
       </div>
-      <button type="submit" class="btn btn-gold btn-block">Créer mon compte</button>
+      <button type="submit" class="btn btn-gold btn-block">Envoyer le code de vérification →</button>
     </form>
     <div class="auth-alt">Déjà inscrit ? <a href="{{ url_for('login') }}">Se connecter</a></div>
   </div>
 </div>
+
+<script>
+  function selectId(type) {
+    document.querySelectorAll(".id-choice").forEach((el) => el.classList.remove("selected"));
+    document.querySelector(`.id-choice[data-type="${type}"]`).classList.add("selected");
+    document.getElementById("id_type").value = type;
+    const input = document.getElementById("identifier");
+    input.value = "";
+    input.placeholder = type === "email" ? "vous@email.com" : "77 123 45 67";
+    input.type = type === "email" ? "text" : "tel";
+  }
+</script>
 
 {% endblock %}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Bûcheur Store{% endblock %} · Bûcheur Store</title>
+  <title>{% block title %}Accueil{% endblock %} · Bûcheur Études & Business</title>
   <link rel="icon" href="{{ url_for('static', filename='uploads/logo.jpg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -11,14 +11,14 @@
   <header>
     <nav class="navbar">
       <a href="{{ url_for('home') }}" class="brand">
-        <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Store">
-        <span>BÛCHEUR<em>STORE</em></span>
+        <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Études & Business">
+        <span>BÛCHEUR <em>ÉTUDES &amp; BUSINESS</em></span>
       </a>
       <button class="menu-toggle" aria-label="Menu">☰</button>
       <div class="nav-links">
         <a href="{{ url_for('home') }}" class="{{ 'active' if request.path == '/' }}">Accueil</a>
         <a href="{{ url_for('catalog') }}" class="{{ 'active' if '/catalogue' in request.path }}">Catalogue</a>
-        <a href="https://wa.me/221770000000?text=Bonjour%20B%C3%BBcheur%20Store%2C%20j%27ai%20une%20question" target="_blank">WhatsApp</a>
+        <a href="https://wa.me/221777572776?text=Bonjour%20B%C3%BBcheur%20%C3%89tudes%20%26%20Business%2C%20j%27ai%20une%20question" target="_blank">WhatsApp</a>
         {% if session.get('user_id') %}
           <a href="{{ url_for('account') }}" class="{{ 'active' if '/compte' in request.path }}">Mon compte</a>
           <form method="post" action="{{ url_for('logout') }}" style="display:inline;">
@@ -52,7 +52,7 @@
   <footer>
     <div class="footer-grid">
       <div>
-        <h4>Bûcheur Store</h4>
+        <h4>Bûcheur Études & Business</h4>
         <p>Votre boutique en ligne de confiance pour les iPhones. Produits authentiques, prix justes et livraison rapide partout au Sénégal.</p>
       </div>
       <div>
@@ -62,14 +62,18 @@
         <a href="{{ url_for('account') }}">Mon compte</a>
       </div>
       <div>
-        <h4>Paiement</h4>
-        <p>Wave · Orange Money · À la livraison</p>
-        <p style="margin-top:8px;">📞 +221 77 000 00 00</p>
-        <p>📍 Dakar, Sénégal</p>
+        <h4>Contact</h4>
+        <p>Paiement : Wave · Orange Money · À la livraison</p>
+        <p style="margin-top:8px;">📞 <a href="https://wa.me/221777572776" target="_blank">+221 77 757 27 76</a></p>
+        <p>📍 Rufisque & Nord-Foire</p>
+        <p>🇸🇳 Sénégal</p>
       </div>
     </div>
-    <div class="footer-bottom">© 2026 Bûcheur Store — Tous droits réservés</div>
+    <div class="footer-bottom">© 2026 Bûcheur Études & Business — Tous droits réservés</div>
   </footer>
+
+  <a href="https://wa.me/221777572776?text=Bonjour%20B%C3%BBcheur%20%C3%89tudes%20%26%20Business%2C%20je%20souhaite%20des%20informations"
+     target="_blank" class="whatsapp-float" aria-label="Discuter sur WhatsApp">💬</a>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
