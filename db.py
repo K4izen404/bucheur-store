@@ -135,6 +135,14 @@ def init_db():
     except sqlite3.OperationalError:
         pass
     try:
+        conn.execute("ALTER TABLE orders ADD COLUMN wave_session_id TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE orders ADD COLUMN wave_launch_url TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
         conn.execute("DROP INDEX IF EXISTS idx_users_phone")
     except sqlite3.OperationalError:
         pass

@@ -6,38 +6,38 @@
 <section class="section">
   {{ checkout_steps(2) }}
   <div class="payment-card panel reveal">
-    {% if order.payment_method == 'wave' %}
+    {% if order.payment_status == 'paid' %}
+      <div style="font-size:60px;">✅</div>
+      <h2>Paiement confirmé</h2>
+      <p style="color:var(--gray);">Merci ! Votre paiement de <b style="color:var(--gold);">{{ order.total | money }}</b> pour la commande n°{{ order.id }} est confirmé.</p>
+      <a href="{{ url_for('order_success', oid=order.id) }}" class="btn btn-gold">Voir ma commande →</a>
+
+    {% elif order.wave_launch_url %}
       <div class="pm-ico-big pm-wave" style="background:linear-gradient(120deg,#38bdf8,#0ea5e9); color:#06222e;">W</div>
       <h2>Paiement Wave</h2>
-      <p style="color:var(--gray);">Commande n°{{ order.id }} · {{ order.total | money }}</p>
+      <p style="color:var(--gray);">Commande n°{{ order.id }} · <b style="color:var(--gold);">{{ order.total | money }}</b></p>
       <ol class="steps">
-        <li><b>1.</b> Cliquez sur « Payer avec Wave » : vous serez redirigé vers votre compte Wave.</li>
-        <li><b>2.</b> Validez le paiement du montant exact de <b>{{ order.total | money }}</b> (expéditeur : {{ wave_account }}).</li>
-        <li><b>3.</b> Revenez sur cette page et cliquez sur « J'ai payé » : le paiement est confirmé sur le site.</li>
+        <li><b>1.</b> Vous allez être redirigé vers votre compte Wave.</li>
+        <li><b>2.</b> Validez le paiement du montant exact de <b>{{ order.total | money }}</b>.</li>
+        <li><b>3.</b> Dès confirmation par Wave, votre commande passe automatiquement en « Payée » — aucune action requise.</li>
       </ol>
-      <a href="{{ url_for('payment_wave', oid=order.id) }}" target="_blank" class="btn btn-wave btn-block" style="font-size:16px; padding:15px;">
-        🌊 Payer avec Wave ({{ order.total | money }})
+      <a href="{{ order.wave_launch_url }}" id="wave-btn" class="btn btn-wave btn-block" style="font-size:16px; padding:15px;">
+        🌊 Continuer vers Wave ({{ order.total | money }})
       </a>
-      <hr style="border:none; border-top:1px dashed rgba(255,255,255,0.12); margin:20px 0;">
-      <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}" data-loading>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-green btn-block" style="font-size:16px; padding:15px;">✓ J'ai payé {{ order.total | money }} — Confirmer</button>
-      </form>
+      <p class="small" style="color:var(--gray); margin-top:12px;">⏳ Redirection automatique dans quelques secondes… Si rien ne se passe, cliquez sur le bouton.</p>
+      <script>
+        setTimeout(function () {
+          var btn = document.getElementById('wave-btn');
+          if (btn) window.location.href = btn.getAttribute('href');
+        }, 4000);
+      </script>
 
-    {% elif order.payment_method == 'om' %}
-      <div class="pm-ico-big pm-om" style="background:linear-gradient(120deg,#fb923c,#f97316); color:#2a1200;">OM</div>
-      <h2>Paiement Orange Money</h2>
-      <p style="color:var(--gray);">Commande n°{{ order.id }} · {{ order.total | money }}</p>
-      <ol class="steps">
-        <li><b>1.</b> Composez <b>*144#</b> sur votre téléphone.</li>
-        <li><b>2.</b> Choisissez « Payer » puis saisissez le numéro Bûcheur : <b>77 000 00 00</b>.</li>
-        <li><b>3.</b> Entrez le montant exact <b>{{ order.total | money }}</b> et validez avec votre code secret.</li>
-        <li><b>4.</b> Revenez sur cette page et cliquez sur « J'ai payé » : le paiement est confirmé sur le site.</li>
-      </ol>
-      <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}" data-loading>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-om btn-block" style="font-size:16px; padding:15px;">✓ J'ai payé {{ order.total | money }} — Confirmer</button>
-      </form>
+    {% else %}
+      <div style="font-size:60px;">⏳</div>
+      <h2>Paiement en attente</h2>
+      <p style="color:var(--gray);">Votre commande n°{{ order.id }} ({{ order.total | money }}) est bien enregistrée, mais le paiement en ligne est momentanément indisponible.</p>
+      <p style="color:var(--gray);">Nous vous contacterons sur votre téléphone pour finaliser le paiement, ou réessayez plus tard.</p>
+      <a href="{{ url_for('order_success', oid=order.id) }}" class="btn btn-outline">Voir ma commande</a>
     {% endif %}
   </div>
 </section>

@@ -63,7 +63,7 @@ bucheur_store/
 - Catalogue avec filtres (modèle, couleur, stockage, état, repliables sur mobile) + recherche + tri
 - Panier en session (ajout AJAX sans rechargement, badge mis à jour), tunnel de commande en 3 étapes
 - Téléphone du client obligatoire et vérifié au moment de la commande (pré-rempli depuis le compte), cliquable (appel/WhatsApp) côté admin
-- Paiement Wave (redirection vers le lien officiel + saisie de la référence), Orange Money (désactivable, « bientôt »), à la livraison
+- Paiement Wave (session officielle créée côté serveur, webhook sécurisé HMAC, confirmation automatique), Orange Money (désactivable, « bientôt »), à la livraison
 - Comptes clients : inscription par email + vérification OTP, connexion, historique des commandes
 - Contact : WhatsApp +221 77 757 27 76 (bouton flottant), livraison à Rufisque & Nord-Foire
 - Design premium sombre + animations, toasts de notification, validation des formulaires côté client, accessibilité (zones tactiles ≥ 44 px)
@@ -77,8 +77,32 @@ bucheur_store/
 
 ## Paiements
 
-- **Wave (actif)** : lien `https://pay.wave.com/m/M_-ufM0UEnXp2n/c/sn/` — redirection, puis le client saisit sa référence. L'admin valide la commande.
-- **Orange Money (en cours)** : masqué du tunnel tant que le compte Marchand n'est pas actif. À activer dans Admin → Réglages (`om_status = active`).
+### Wave (actif) — intégration API officielle
+
+1. Le montant est **lu en base** au moment du checkout (jamais fourni par le navigateur).
+2. Un **microservice FastAPI** (`wave_pay/`, port 5001, service systemd `bucheur-wave`) crée la session
+   `POST https://api.wave.com/v1/checkout/sessions` (devise XOF, `restrict_payer_mobile`) et redirige
+   l'acheteur vers `wave_launch_url`.
+3. Wave notifie le **webhook** `POST /webhook/wave` avec un header `Wave-Signature` (HMAC-SHA256 sur
+   `timestamp + corps brut`). La signature est vérifiée (anti-rejeu 5 min).
+4. Si l'événement `checkout.session.completed` correspond à un `client_reference` `order-<id>`, le service
+   appelle la route interne Flask `POST /api/paiement/confirme/<id>` (secret partagé
+   `X-Internal-Secret`) qui **re-vérifie le montant contre la base** (refus 422 si incohérent) puis passe
+   la commande en **PAYÉE** et notifie client + admin par email. Idempotent.
+5. Aucune confirmation n'est jamais acceptée côté client.
+
+**Identifiants requis** (variables d'environnement de `bucheur-wave.service`) :
+- `WAVE_API_KEY` : clé API du portefeuille (developer.wave.com → Business Portal → Applications).
+  Production `wave_sn_prod_...`, sandbox `wave_sn_test_...`.
+- `WAVE_WEBHOOK_SECRET` : secret de signature des webhooks (fourni à l'enregistrement du webhook
+  dans le Business Portal).
+- `WAVE_API_BASE` : `https://api.wave.com` (prod) ou `https://api.wave.com/v1/sandbox` (test).
+- `WAVE_SIGNING_SECRET` : secret de signature des *requêtes* API (optionnel).
+- `WAVE_INTERNAL_SECRET` : secret partagé avec Flask (même valeur dans `bucheur-store.service`).
+- `WAVE_SUCCESS_URL_BASE` : base du site pour `success_url`/`error_url` (**HTTPS exigé par Wave**).
+- `FLASK_INTERNAL_URL` : URL interne de Flask (garder `http://127.0.0.1:5000`).
+
+**Orange Money (en cours)** : masqué du tunnel tant que le compte Marchand n'est pas actif. À activer dans Admin → Réglages (`om_status = active`).
 
 ## Production
 

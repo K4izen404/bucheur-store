@@ -43,4 +43,10 @@
   <a href="{{ url_for('catalog') }}" class="btn btn-gold">Continuer mes achats</a>
 </section>
 
+{% if order.payment_method != 'cod' and order.payment_status != 'paid' %}
+<script>
+  setTimeout(function () { window.location.reload(); }, 5000);
+</script>
+{% endif %}
+
 {% endblock %}

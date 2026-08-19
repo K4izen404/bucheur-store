@@ -2,11 +2,10 @@ import json
 import os
 import re
 import secrets
-import smtplib
 import time
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
 
+import httpx
 from flask import (Flask, abort, flash, jsonify, redirect, render_template,
                    request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -15,12 +14,17 @@ from urllib.parse import urlparse
 
 from db import (ORDER_STATUS, PAYMENT_STATUS, WAVE_ACCOUNT, execute, init_db,
                 query)
+from notify import (smtp_configured, send_email, _notify_new_order,
+                    _notify_order_update, _notify_payment_to_admin)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
 ALLOWED_EXT = {"png", "jpg", "jpeg", "webp", "gif"}
 
 WAVE_LINK_DEFAULT = "https://pay.wave.com/m/M_-ufM0UEnXp2n/c/sn/"
+
+WAVE_SERVICE_URL = os.environ.get("WAVE_SERVICE_URL", "http://127.0.0.1:5001")
+WAVE_INTERNAL_SECRET = os.environ.get("WAVE_INTERNAL_SECRET", "")
 
 LOGIN_ATTEMPTS = {}
 MAX_LOGIN_FAILURES = 5
@@ -96,6 +100,8 @@ def make_session_permanent():
 @app.before_request
 def csrf_protect():
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        if request.path.startswith("/api/"):
+            return
         token = request.form.get("csrf_token", "")
         if not token or not secrets.compare_digest(token, session.get("_csrf", "")):
             flash("Session expirée, veuillez réessayer.", "error")
@@ -159,38 +165,10 @@ def normalize_phone(phone):
     return phone.strip() if phone else ""
 
 
-def smtp_configured():
-    return bool(os.environ.get("SMTP_HOST"))
-
-
 def otp_dev_mode():
     """Mode développement : affiche le code OTP à l'écran.
     Uniquement si FLASK_ENV=development est explicitement défini (jamais par défaut)."""
     return os.environ.get("FLASK_ENV") == "development" and not smtp_configured()
-
-
-def send_email(to_addr, subject, body):
-    host = os.environ.get("SMTP_HOST")
-    if not host:
-        return False
-    port = int(os.environ.get("SMTP_PORT", "587"))
-    user = os.environ.get("SMTP_USER", "")
-    password = os.environ.get("SMTP_PASSWORD", "")
-    sender = os.environ.get("SMTP_FROM", user)
-    msg = MIMEText(body, "plain", "utf-8")
-    msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = to_addr
-    try:
-        with smtplib.SMTP(host, port, timeout=10) as s:
-            if port == 587 or port == 25:
-                s.starttls()
-            if user:
-                s.login(user, password)
-            s.sendmail(sender, [to_addr], msg.as_string())
-        return True
-    except Exception:
-        return False
 
 
 def generate_otp(uid):
@@ -214,80 +192,6 @@ Ce code est valable {OTP_TTL_MINUTES} minutes. Si vous n'êtes pas à l'origine 
 — Bûcheur Études & Business
 Rufisque & Nord-Foire"""
     return send_email(user["email"], "Votre code de vérification Bûcheur", body), code
-
-
-def _notify_new_order(oid, name, phone, email, address, method, note, items, total):
-    """Email à l'admin + accusé de réception client (résilient : n'empêche jamais la commande)."""
-    lines = [f"Nouvelle commande #{oid} — {name}",
-             "", f"Client : {name}", f"Téléphone : +221 {phone}",
-             f"Email : {email}", f"Adresse de livraison : {address or '—'}",
-             "", "Articles :"]
-    for it in items:
-        lines.append(f"  - {it['product']['name']} x{it['qty']} — {it['product']['price']} FCFA")
-    lines += ["", f"Total : {total} FCFA",
-              f"Moyen de paiement : {'Wave' if method == 'wave' else ('Orange Money' if method == 'om' else 'À la livraison')}",
-              f"Note du client : {note or '—'}",
-              f"Date : {datetime.now().strftime('%d/%m/%Y %H:%M')}"]
-    admin_to = os.environ.get("ADMIN_NOTIFY_EMAIL") or os.environ.get("SMTP_FROM", "")
-    if admin_to:
-        try:
-            send_email(admin_to, f"Nouvelle commande #{oid} — {name}", "\n".join(lines))
-        except Exception:
-            print(f"[email] échec notification admin commande #{oid}")
-
-    payment_label = {"wave": "en attente de paiement",
-                     "om": "en attente de paiement",
-                     "cod": "paiement à la livraison"}.get(method, "en attente")
-    client_body = f"""Bonjour {name},
-
-Merci pour votre commande sur Bûcheur Études & Business !
-
-Commande #{oid} — récapitulatif :
-"""
-    for it in items:
-        client_body += f"  • {it['product']['name']} x{it['qty']} — {it['product']['price']} FCFA\n"
-    client_body += f"""
-Total : {total} FCFA
-Paiement : {payment_label}
-Adresse de livraison : {address or 'à confirmer'}
-
-Votre commande est bien enregistrée. Nous vous recontacterons au besoin sur votre téléphone ({phone}).
-
-— Bûcheur Études & Business
-Rufisque & Nord-Foire"""
-    if email:
-        try:
-            send_email(email, f"Confirmation de votre commande #{oid} — Bûcheur Études & Business", client_body)
-        except Exception:
-            print(f"[email] échec confirmation client commande #{oid}")
-
-
-def _notify_order_update(order, new_status=None, new_date=None, new_payment=None):
-    """Email client lors d'un changement de statut, de date ou de paiement (résilient)."""
-    if not order["customer_email"]:
-        return
-    parts = [f"Bonjour {order['customer_name']},"]
-    if new_status:
-        parts.append(f"Votre commande #{order['id']} est maintenant : {ORDER_STATUS.get(new_status, new_status)}.")
-    if new_date:
-        try:
-            d = datetime.strptime(new_date, "%Y-%m-%d")
-            pretty = d.strftime("%A %d %B %Y").capitalize()
-        except ValueError:
-            pretty = new_date
-        parts.append(f"Livraison prévue : {pretty}.")
-    if new_payment == "paid":
-        parts.append(
-            f"Votre paiement de {order['total']:,.0f} FCFA pour la commande #{order['id']} "
-            "a été confirmé. Merci !")
-    parts.append("")
-    parts.append("Merci de votre confiance.")
-    parts.append("— Bûcheur Études & Business")
-    parts.append("Rufisque & Nord-Foire")
-    try:
-        send_email(order["customer_email"], f"Mise à jour de votre commande #{order['id']}", "\n".join(parts))
-    except Exception:
-        print(f"[email] échec notification mise à jour commande #{order['id']}")
 
 
 def login_required(f):
@@ -603,8 +507,20 @@ def checkout():
         _notify_new_order(oid, name, phone, email, address, method, note, items, total)
 
         if method == "wave":
-            return redirect(url_for("payment", oid=oid))
-        if method == "om":
+            try:
+                resp = httpx.post(
+                    f"{WAVE_SERVICE_URL}/checkout",
+                    json={"order_id": oid},
+                    headers={"X-Internal-Secret": WAVE_INTERNAL_SECRET},
+                    timeout=15)
+                if resp.status_code == 200:
+                    d = resp.json()
+                    execute("UPDATE orders SET wave_session_id=?, wave_launch_url=? WHERE id=?",
+                            (d.get("session_id"), d.get("wave_launch_url"), oid))
+                    return redirect(d["wave_launch_url"])
+            except Exception as exc:
+                print(f"[wave] service indisponible pour la commande #{oid} : {exc}")
+            flash("Le paiement en ligne est momentanément indisponible. Votre commande est enregistrée, nous vous contacterons.", "warning")
             return redirect(url_for("payment", oid=oid))
         return redirect(url_for("order_success", oid=oid))
 
@@ -623,42 +539,32 @@ def payment(oid):
     return render_template("payment.html", order=order)
 
 
-@app.route("/paiement/wave/<int:oid>")
-def payment_wave(oid):
-    order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
-    if not order or order["payment_method"] != "wave":
-        abort(404)
-    if not order_access(order):
-        abort(404)
-    return redirect(wave_link())
-
-
-@app.route("/paiement/confirmer/<int:oid>", methods=["POST"])
-def payment_confirm(oid):
+@app.route("/api/paiement/confirme/<int:oid>", methods=["POST"])
+def api_payment_confirm(oid):
+    """Route interne appelée par le service Wave (webhook vérifié) — jamais par le client."""
+    if not WAVE_INTERNAL_SECRET or not secrets.compare_digest(
+            request.headers.get("X-Internal-Secret", ""), WAVE_INTERNAL_SECRET):
+        abort(401)
+    data = request.get_json(silent=True) or {}
     order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
     if not order:
-        abort(404)
-    if not order_access(order):
-        abort(404)
+        return jsonify({"ok": False, "error": "not_found"}), 404
     if order["payment_status"] == "paid":
-        flash("Ce paiement a déjà été confirmé.", "info")
-        return redirect(url_for("order_success", oid=oid))
-    execute("UPDATE orders SET payment_status='paid' WHERE id=?", (oid,))
+        return jsonify({"ok": True, "already": True})
+    try:
+        paid_amount = int(data.get("amount"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "amount_invalide"}), 422
+    if paid_amount != int(order["total"]):
+        print(f"[paiement] montant incohérent pour #{oid} : {paid_amount} != {order['total']}")
+        return jsonify({"ok": False, "error": "montant_incorrect"}), 422
+    if data.get("currency") not in (None, "XOF"):
+        return jsonify({"ok": False, "error": "devise_incorrecte"}), 422
+    execute("UPDATE orders SET payment_status='paid', reference=?, wave_session_id=? WHERE id=?",
+            (data.get("transaction_id"), data.get("session_id"), oid))
     _notify_order_update(order, new_payment="paid")
-    admin_to = os.environ.get("ADMIN_NOTIFY_EMAIL") or os.environ.get("SMTP_FROM", "")
-    if admin_to:
-        method_label = "Wave" if order["payment_method"] == "wave" else "Orange Money"
-        try:
-            send_email(
-                admin_to,
-                f"Paiement confirmé — commande #{oid}",
-                f"Le client {order['customer_name']} ({order['customer_phone']}) vient de confirmer "
-                f"le paiement de {order['total']:,.0f} FCFA ({method_label}). "
-                "Vérifiez la réception sur votre compte.")
-        except Exception:
-            print(f"[email] échec notification admin paiement #{oid}")
-    flash("Paiement confirmé ! Merci, votre commande est en cours de traitement.", "success")
-    return redirect(url_for("order_success", oid=oid))
+    _notify_payment_to_admin(order)
+    return jsonify({"ok": True})
 
 
 @app.route("/commande/succes/<int:oid>")
