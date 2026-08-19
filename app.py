@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import secrets
@@ -454,6 +455,30 @@ def product(pid):
 # ---------------------------------------------------------------- panier
 
 
+def save_cart(user_id):
+    """Sauvegarde le panier de la session en base (lié au compte utilisateur)."""
+    if not user_id:
+        return
+    execute(
+        """INSERT INTO carts (user_id, data, updated_at) VALUES (?,?,datetime('now'))
+           ON CONFLICT(user_id) DO UPDATE SET data=excluded.data, updated_at=datetime('now')""",
+        (user_id, json.dumps(session.get("cart", {}))))
+
+
+def load_cart(user_id):
+    """Charge le panier sauvegardé du compte (JSON) ou {}."""
+    if not user_id:
+        return {}
+    row = query("SELECT data FROM carts WHERE user_id=?", (user_id,), one=True)
+    if not row:
+        return {}
+    try:
+        cart = json.loads(row["data"])
+    except (ValueError, TypeError):
+        return {}
+    return {k: v for k, v in cart.items() if isinstance(v, dict) and v.get("qty", 0) > 0}
+
+
 @app.route("/panier/ajouter/<int:pid>", methods=["POST"])
 @verified_required
 def cart_add(pid):
@@ -469,6 +494,7 @@ def cart_add(pid):
     else:
         cart[key] = {"qty": qty, "price": p["price"]}
     session["cart"] = cart
+    save_cart(session.get("user_id"))
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"ok": True, "count": cart_count(), "name": p["name"]})
     flash(f"{p['name']} ajouté au panier.", "success")
@@ -503,6 +529,7 @@ def cart_update(pid):
             p = query("SELECT * FROM products WHERE id=?", (pid,), one=True)
             cart[str(pid)]["qty"] = min(qty, max(p["stock"], 1)) if p else qty
     session["cart"] = cart
+    save_cart(session.get("user_id"))
     return redirect(url_for("cart"))
 
 
@@ -566,6 +593,7 @@ def checkout():
             execute("UPDATE products SET stock = stock - ? WHERE id=?",
                     (it["qty"], it["product"]["id"]))
         session["cart"] = {}
+        execute("DELETE FROM carts WHERE user_id=?", (session["user_id"],))
         session["last_order"] = oid
 
         _notify_new_order(oid, name, phone, email, address, method, note, items, total)
@@ -741,6 +769,7 @@ def login():
         if user and user["verified"] and check_password_hash(user["password_hash"], password):
             login_success(key)
             session["user_id"] = user["id"]
+            session["cart"] = load_cart(user["id"])
             flash(f"Bon retour, {user['name']} !", "success")
             nxt = request.args.get("next") or url_for("home")
             if not nxt.startswith("/") or nxt.startswith("//"):
@@ -753,6 +782,7 @@ def login():
 
 @app.route("/deconnexion", methods=["POST"])
 def logout():
+    save_cart(session.get("user_id"))
     session.clear()
     flash("Vous êtes déconnecté.", "info")
     return redirect(url_for("home"))

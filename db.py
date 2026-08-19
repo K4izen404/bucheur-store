@@ -69,6 +69,12 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+
+CREATE TABLE IF NOT EXISTS carts (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+    data TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT DEFAULT (datetime('now'))
+);
 """
 
 PAYMENT_STATUS = {
