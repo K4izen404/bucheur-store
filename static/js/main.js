@@ -155,8 +155,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // --- Validation client des formulaires ---
   const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  const PHONE_RE = /^(\+221)?\s?([3677][0-9])\s?([0-9]{2})\s?([0-9]{2})\s?([0-9]{2})$/;
   const OTP_RE = /^[0-9]{6}$/;
+
+  function isValidPhone(value) {
+    let d = String(value).replace(/\D/g, "");
+    if (d.startsWith("221") && d.length > 9) d = d.slice(3);
+    return d.length === 9 && /^[3705678]/.test(d);
+  }
 
   function fieldError(input, msg) {
     const wrap = input.closest(".field");
@@ -191,7 +196,7 @@ document.addEventListener("DOMContentLoaded", function () {
       fieldError(input, "Adresse email invalide.");
       return false;
     }
-    if (rule === "phone" && val && !PHONE_RE.test(val)) {
+    if (rule === "phone" && val && !isValidPhone(val)) {
       fieldError(input, "Numéro sénégalais attendu (ex : 77 123 45 67).");
       return false;
     }
