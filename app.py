@@ -764,7 +764,7 @@ def login():
         key = f"{email}|{request.remote_addr}"
         if not login_limiter(key):
             flash("Trop de tentatives. Réessayez dans 10 minutes.", "error")
-            return redirect(url_for("login"))
+            return render_template("auth/login.html", email=email)
         user = query("SELECT * FROM users WHERE email=?", (email,), one=True)
         if user and user["verified"] and check_password_hash(user["password_hash"], password):
             login_success(key)
@@ -777,6 +777,7 @@ def login():
             return redirect(nxt)
         login_failure(key)
         flash("Email ou mot de passe incorrect.", "error")
+        return render_template("auth/login.html", email=email)
     return render_template("auth/login.html")
 
 
