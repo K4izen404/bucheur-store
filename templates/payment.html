@@ -12,32 +12,36 @@
       <p style="color:var(--gray);">Merci ! Votre paiement de <b style="color:var(--gold);">{{ order.total | money }}</b> pour la commande n°{{ order.id }} est confirmé.</p>
       <a href="{{ url_for('order_success', oid=order.id) }}" class="btn btn-gold">Voir ma commande →</a>
 
-    {% elif order.wave_launch_url %}
+    {% elif order.reference %}
+      <div style="font-size:60px;">⏳</div>
+      <h2>Paiement en cours de validation</h2>
+      <p style="color:var(--gray);">Votre référence <b style="color:var(--gold);">{{ order.reference }}</b> est bien enregistrée pour la commande n°{{ order.id }}.</p>
+      <p style="color:var(--gray);">Nous vérifions votre paiement de <b style="color:var(--gold);">{{ order.total | money }}</b> sur notre compte Wave. Vous recevrez une confirmation par email dès validation.</p>
+      <a href="{{ url_for('order_success', oid=order.id) }}" class="btn btn-gold">Voir ma commande →</a>
+
+    {% else %}
       <div class="pm-ico-big pm-wave" style="background:linear-gradient(120deg,#38bdf8,#0ea5e9); color:#06222e;">W</div>
       <h2>Paiement Wave</h2>
       <p style="color:var(--gray);">Commande n°{{ order.id }} · <b style="color:var(--gold);">{{ order.total | money }}</b></p>
       <ol class="steps">
-        <li><b>1.</b> Vous allez être redirigé vers votre compte Wave.</li>
-        <li><b>2.</b> Validez le paiement du montant exact de <b>{{ order.total | money }}</b>.</li>
-        <li><b>3.</b> Dès confirmation par Wave, votre commande passe automatiquement en « Payée » — aucune action requise.</li>
+        <li><b>1.</b> Ouvrez votre application Wave et payez le montant exact de <b>{{ order.total | money }}</b> au numéro Bûcheur.</li>
+        <li><b>2.</b> Copiez la <b>référence de la transaction</b> (ex : TCN4Y4ZC3FM) affichée après le paiement.</li>
+        <li><b>3.</b> Collez-la ci-dessous et validez. Nous confirmons votre paiement sur notre compte.</li>
       </ol>
-      <a href="{{ order.wave_launch_url }}" id="wave-btn" class="btn btn-wave btn-block" style="font-size:16px; padding:15px;">
-        🌊 Continuer vers Wave ({{ order.total | money }})
-      </a>
-      <p class="small" style="color:var(--gray); margin-top:12px;">⏳ Redirection automatique dans quelques secondes… Si rien ne se passe, cliquez sur le bouton.</p>
-      <script>
-        setTimeout(function () {
-          var btn = document.getElementById('wave-btn');
-          if (btn) window.location.href = btn.getAttribute('href');
-        }, 4000);
-      </script>
-
-    {% else %}
-      <div style="font-size:60px;">⏳</div>
-      <h2>Paiement en attente</h2>
-      <p style="color:var(--gray);">Votre commande n°{{ order.id }} ({{ order.total | money }}) est bien enregistrée, mais le paiement en ligne est momentanément indisponible.</p>
-      <p style="color:var(--gray);">Nous vous contacterons sur votre téléphone pour finaliser le paiement, ou réessayez plus tard.</p>
-      <a href="{{ url_for('order_success', oid=order.id) }}" class="btn btn-outline">Voir ma commande</a>
+      {% if wave_link %}
+        <a href="{{ wave_link }}" target="_blank" rel="noopener" class="btn btn-wave btn-block" style="font-size:16px; padding:15px;">
+          🌊 Payer avec Wave ({{ order.total | money }})
+        </a>
+        <p class="small" style="color:var(--gray); margin:10px 0 16px;">Le lien s'ouvre dans un nouvel onglet.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('payment_reference', oid=order.id) }}" style="margin-top:6px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="ref" style="display:block; margin-bottom:8px;">Référence de votre paiement Wave</label>
+        <input id="ref" type="text" name="reference" required minlength="4" maxlength="40"
+               placeholder="Ex : TCN4Y4ZC3FM" style="width:100%; padding:13px; font-size:15px; border-radius:12px;
+               border:1px solid var(--border); background:var(--bg-2); color:var(--text); margin-bottom:14px;">
+        <button class="btn btn-gold btn-block" style="padding:14px;">J'ai payé — Valider ma référence</button>
+      </form>
     {% endif %}
   </div>
 </section>

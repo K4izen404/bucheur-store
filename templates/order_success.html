@@ -36,17 +36,16 @@
       Vous paierez <b>{{ order.total | money }}</b> à la livraison. Nous vous contacterons au {{ order.customer_phone }} pour confirmer.
     {% elif order.payment_status == 'paid' %}
       Votre paiement de <b>{{ order.total | money }}</b> est confirmé. Nous préparons votre commande 🎉
+    {% elif order.reference %}
+      Votre référence ({{ order.reference }}) est enregistrée. Nous validons votre paiement et vous confirmerons par email.
     {% else %}
-      Paiement en attente : complétez le paiement pour confirmer votre commande.
+      Paiement en attente : payez <b>{{ order.total | money }}</b> via l'application Wave puis renseignez votre référence.
     {% endif %}
   </p>
+  {% if order.payment_method == 'wave' and order.payment_status != 'paid' and not order.reference %}
+    <a href="{{ url_for('payment', oid=order.id) }}" class="btn btn-outline" style="margin-bottom:14px;">Compléter le paiement Wave</a><br>
+  {% endif %}
   <a href="{{ url_for('catalog') }}" class="btn btn-gold">Continuer mes achats</a>
 </section>
-
-{% if order.payment_method != 'cod' and order.payment_status != 'paid' %}
-<script>
-  setTimeout(function () { window.location.reload(); }, 5000);
-</script>
-{% endif %}
 
 {% endblock %}

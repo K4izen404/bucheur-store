@@ -5,7 +5,6 @@ import secrets
 import time
 from datetime import datetime, timedelta
 
-import httpx
 from flask import (Flask, abort, flash, jsonify, redirect, render_template,
                    request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -22,9 +21,6 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
 ALLOWED_EXT = {"png", "jpg", "jpeg", "webp", "gif"}
 
 WAVE_LINK_DEFAULT = "https://pay.wave.com/m/M_-ufM0UEnXp2n/c/sn/"
-
-WAVE_SERVICE_URL = os.environ.get("WAVE_SERVICE_URL", "http://127.0.0.1:5001")
-WAVE_INTERNAL_SECRET = os.environ.get("WAVE_INTERNAL_SECRET", "")
 
 LOGIN_ATTEMPTS = {}
 MAX_LOGIN_FAILURES = 5
@@ -507,20 +503,6 @@ def checkout():
         _notify_new_order(oid, name, phone, email, address, method, note, items, total)
 
         if method == "wave":
-            try:
-                resp = httpx.post(
-                    f"{WAVE_SERVICE_URL}/checkout",
-                    json={"order_id": oid},
-                    headers={"X-Internal-Secret": WAVE_INTERNAL_SECRET},
-                    timeout=15)
-                if resp.status_code == 200:
-                    d = resp.json()
-                    execute("UPDATE orders SET wave_session_id=?, wave_launch_url=? WHERE id=?",
-                            (d.get("session_id"), d.get("wave_launch_url"), oid))
-                    return redirect(d["wave_launch_url"])
-            except Exception as exc:
-                print(f"[wave] service indisponible pour la commande #{oid} : {exc}")
-            flash("Le paiement en ligne est momentanément indisponible. Votre commande est enregistrée, nous vous contacterons.", "warning")
             return redirect(url_for("payment", oid=oid))
         return redirect(url_for("order_success", oid=oid))
 
@@ -539,32 +521,23 @@ def payment(oid):
     return render_template("payment.html", order=order)
 
 
-@app.route("/api/paiement/confirme/<int:oid>", methods=["POST"])
-def api_payment_confirm(oid):
-    """Route interne appelée par le service Wave (webhook vérifié) — jamais par le client."""
-    if not WAVE_INTERNAL_SECRET or not secrets.compare_digest(
-            request.headers.get("X-Internal-Secret", ""), WAVE_INTERNAL_SECRET):
-        abort(401)
-    data = request.get_json(silent=True) or {}
+@app.route("/paiement/<int:oid>/reference", methods=["POST"])
+def payment_reference(oid):
+    """Le client déclare son paiement Wave : la référence est enregistrée,
+    l'admin est notifié et valide manuellement après vérification sur son compte."""
     order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
-    if not order:
-        return jsonify({"ok": False, "error": "not_found"}), 404
-    if order["payment_status"] == "paid":
-        return jsonify({"ok": True, "already": True})
-    try:
-        paid_amount = int(data.get("amount"))
-    except (TypeError, ValueError):
-        return jsonify({"ok": False, "error": "amount_invalide"}), 422
-    if paid_amount != int(order["total"]):
-        print(f"[paiement] montant incohérent pour #{oid} : {paid_amount} != {order['total']}")
-        return jsonify({"ok": False, "error": "montant_incorrect"}), 422
-    if data.get("currency") not in (None, "XOF"):
-        return jsonify({"ok": False, "error": "devise_incorrecte"}), 422
-    execute("UPDATE orders SET payment_status='paid', reference=?, wave_session_id=? WHERE id=?",
-            (data.get("transaction_id"), data.get("session_id"), oid))
-    _notify_order_update(order, new_payment="paid")
-    _notify_payment_to_admin(order)
-    return jsonify({"ok": True})
+    if not order or not order_access(order):
+        abort(404)
+    if order["payment_method"] == "cod" or order["payment_status"] == "paid":
+        return redirect(url_for("order_success", oid=oid))
+    reference = request.form.get("reference", "").strip()
+    if len(reference) < 4:
+        flash("Veuillez saisir la référence de votre paiement Wave (elle est affichée dans votre application Wave).", "error")
+        return redirect(url_for("payment", oid=oid))
+    execute("UPDATE orders SET reference=? WHERE id=?", (reference, oid))
+    _notify_payment_to_admin(query("SELECT * FROM orders WHERE id=?", (oid,), one=True))
+    flash("Référence enregistrée ! Nous vérifions votre paiement et vous confirmerons par email.", "success")
+    return redirect(url_for("order_success", oid=oid))
 
 
 @app.route("/commande/succes/<int:oid>")

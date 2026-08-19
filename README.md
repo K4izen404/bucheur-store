@@ -77,30 +77,27 @@ bucheur_store/
 
 ## Paiements
 
-### Wave (actif) — intégration API officielle
+### Wave (actif) — flux manuel simplifié
 
-1. Le montant est **lu en base** au moment du checkout (jamais fourni par le navigateur).
-2. Un **microservice FastAPI** (`wave_pay/`, port 5001, service systemd `bucheur-wave`) crée la session
-   `POST https://api.wave.com/v1/checkout/sessions` (devise XOF, `restrict_payer_mobile`) et redirige
-   l'acheteur vers `wave_launch_url`.
-3. Wave notifie le **webhook** `POST /webhook/wave` avec un header `Wave-Signature` (HMAC-SHA256 sur
-   `timestamp + corps brut`). La signature est vérifiée (anti-rejeu 5 min).
-4. Si l'événement `checkout.session.completed` correspond à un `client_reference` `order-<id>`, le service
-   appelle la route interne Flask `POST /api/paiement/confirme/<id>` (secret partagé
-   `X-Internal-Secret`) qui **re-vérifie le montant contre la base** (refus 422 si incohérent) puis passe
-   la commande en **PAYÉE** et notifie client + admin par email. Idempotent.
-5. Aucune confirmation n'est jamais acceptée côté client.
+Aucun compte Wave Business / KYC requis : le marchand utilise son lien Wave personnel
+(modifiable dans Admin → Réglages → « Lien Wave »).
 
-**Identifiants requis** (variables d'environnement de `bucheur-wave.service`) :
-- `WAVE_API_KEY` : clé API du portefeuille (developer.wave.com → Business Portal → Applications).
-  Production `wave_sn_prod_...`, sandbox `wave_sn_test_...`.
-- `WAVE_WEBHOOK_SECRET` : secret de signature des webhooks (fourni à l'enregistrement du webhook
-  dans le Business Portal).
-- `WAVE_API_BASE` : `https://api.wave.com` (prod) ou `https://api.wave.com/v1/sandbox` (test).
-- `WAVE_SIGNING_SECRET` : secret de signature des *requêtes* API (optionnel).
-- `WAVE_INTERNAL_SECRET` : secret partagé avec Flask (même valeur dans `bucheur-store.service`).
-- `WAVE_SUCCESS_URL_BASE` : base du site pour `success_url`/`error_url` (**HTTPS exigé par Wave**).
-- `FLASK_INTERNAL_URL` : URL interne de Flask (garder `http://127.0.0.1:5000`).
+1. Le client commande → page paiement avec le montant exact et le lien Wave du marchand.
+2. Il paie via son application Wave et **colle la référence de transaction** (ex : TCN4Y4ZC3FM).
+3. L'admin reçoit un email « Paiement à vérifier » avec la référence, **vérifie sur son compte Wave**
+   puis valide dans l'administration (Commandes → statut paiement = Payé). Le client est
+   notifié par email automatiquement.
+
+### Intégration automatique (optionnelle, prête)
+
+Le code d'une intégration API officielle (session serveur + webhook HMAC) existe dans
+`wave_pay/` (microservice FastAPI + service systemd `bucheur-wave`). Pour l'activer, il faut
+un **compte Wave Business** (business.wave.com, validation KYC 3-7 jours), puis :
+- remplir `WAVE_API_KEY`, `WAVE_WEBHOOK_SECRET` dans `bucheur-wave.service` et
+  `systemctl --user enable --now bucheur-wave.service` ;
+- ajouter `WAVE_SERVICE_URL`/`WAVE_INTERNAL_SECRET` à `bucheur-store.service` et rétablir
+  l'appel au service dans `checkout()` (voir commit `763c582`) ;
+- un domaine **HTTPS** pour l'URL du webhook.
 
 **Orange Money (en cours)** : masqué du tunnel tant que le compte Marchand n'est pas actif. À activer dans Admin → Réglages (`om_status = active`).
 

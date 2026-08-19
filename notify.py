@@ -109,17 +109,21 @@ def _notify_order_update(order, new_status=None, new_date=None, new_payment=None
 
 
 def _notify_payment_to_admin(order):
-    """Email à l'admin quand un paiement Wave est confirmé (résilient)."""
+    """Email à l'admin quand un client déclare un paiement Wave : à vérifier sur le
+    compte Wave du marchand puis à valider manuellement (résilient)."""
     admin_to = os.environ.get("ADMIN_NOTIFY_EMAIL") or os.environ.get("SMTP_FROM", "")
     if not admin_to:
         return
     method_label = "Wave" if order["payment_method"] == "wave" else "Orange Money"
+    ref = order["reference"] or "—"
     try:
         send_email(
             admin_to,
-            f"Paiement confirmé — commande #{order['id']}",
-            f"Le client {order['customer_name']} ({order['customer_phone']}) vient de payer "
-            f"{order['total']:,.0f} FCFA ({method_label}). "
-            "Vérifiez la réception sur votre compte.")
+            f"Paiement {method_label} à vérifier — commande #{order['id']}",
+            f"Le client {order['customer_name']} ({order['customer_phone']}) déclare avoir payé "
+            f"{order['total']:,.0f} FCFA par {method_label}.\n"
+            f"Référence de transaction : {ref}\n"
+            "Vérifiez la réception sur votre compte, puis validez le paiement "
+            "dans l'administration (Commandes → statut paiement = Payé).")
     except Exception:
         print(f"[email] échec notification admin paiement #{order['id']}")
