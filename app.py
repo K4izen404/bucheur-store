@@ -474,6 +474,9 @@ def checkout():
         if not phone or len(re.sub(r"\D", "", phone)) != 9:
             flash("Numéro de téléphone invalide. Format sénégalais attendu (ex : 77 123 45 67).", "error")
             return redirect(url_for("checkout"))
+        if not address:
+            flash("L'adresse de livraison est obligatoire.", "error")
+            return redirect(url_for("checkout"))
         if method not in ("wave", "om", "cod"):
             flash("Choisissez un moyen de paiement.", "error")
             return redirect(url_for("checkout"))
@@ -531,8 +534,13 @@ def payment_reference(oid):
     if order["payment_method"] == "cod" or order["payment_status"] == "paid":
         return redirect(url_for("order_success", oid=oid))
     reference = request.form.get("reference", "").strip()
-    if len(reference) < 4:
-        flash("Veuillez saisir la référence de votre paiement Wave (elle est affichée dans votre application Wave).", "error")
+    if not re.fullmatch(r"TCN[A-Z0-9]{8,12}", reference, re.IGNORECASE):
+        flash("Référence invalide. Les références Wave commencent par TCN (ex : TCN4Y4ZC3FM) — vérifiez dans votre application Wave.", "error")
+        return redirect(url_for("payment", oid=oid))
+    reference = reference.upper()
+    dup = query("SELECT id FROM orders WHERE reference=? AND id!=? LIMIT 1", (reference, oid), one=True)
+    if dup:
+        flash("Cette référence a déjà été utilisée pour une autre commande. Vérifiez la référence dans votre application Wave.", "error")
         return redirect(url_for("payment", oid=oid))
     execute("UPDATE orders SET reference=? WHERE id=?", (reference, oid))
     _notify_payment_to_admin(query("SELECT * FROM orders WHERE id=?", (oid,), one=True))

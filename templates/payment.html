@@ -37,8 +37,9 @@
       <form method="post" action="{{ url_for('payment_reference', oid=order.id) }}" style="margin-top:6px;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="ref" style="display:block; margin-bottom:8px;">Référence de votre paiement Wave</label>
-        <input id="ref" type="text" name="reference" required minlength="4" maxlength="40"
-               placeholder="Ex : TCN4Y4ZC3FM" style="width:100%; padding:13px; font-size:15px; border-radius:12px;
+        <input id="ref" type="text" name="reference" required minlength="12" maxlength="15"
+               placeholder="Ex : TCN4Y4ZC3FM" pattern="[Tt][Cc][Nn][A-Za-z0-9]{8,12}" title="La référence commence par TCN (ex : TCN4Y4ZC3FM)"
+               style="width:100%; padding:13px; font-size:15px; border-radius:12px;
                border:1px solid var(--border); background:var(--bg-2); color:var(--text); margin-bottom:14px;">
         <button class="btn btn-gold btn-block" style="padding:14px;">J'ai payé — Valider ma référence</button>
       </form>
