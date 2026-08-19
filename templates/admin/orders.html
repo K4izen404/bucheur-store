@@ -24,7 +24,7 @@
   {% if orders %}
   <table>
     <tr>
-      <th>#</th><th>Client</th><th>Téléphone</th><th>Total</th><th>Paiement</th><th>Statut paiement</th><th>Statut</th><th>Modifier</th><th>Date</th>
+      <th>#</th><th>Client</th><th>Téléphone</th><th>Adresse</th><th>Total</th><th>Paiement</th><th>Statut paiement</th><th>Statut</th><th>Modifier</th><th>Date</th>
     </tr>
     {% for o in orders %}
     <tr>
@@ -39,6 +39,7 @@
           {{ o.customer_phone }}
         {% endif %}
       </td>
+      <td style="color:var(--gray); font-size:12.5px; max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ o.address or '' }}">{{ o.address or '—' }}</td>
       <td style="color:var(--gold); font-weight:700;">{{ o.total | money }}</td>
       <td>
         {% if o.payment_method == 'wave' %}🌊 Wave{% elif o.payment_method == 'om' %}🟠 OM{% else %}💵 Livraison{% endif %}
