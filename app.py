@@ -262,8 +262,8 @@ Rufisque & Nord-Foire"""
             print(f"[email] échec confirmation client commande #{oid}")
 
 
-def _notify_order_update(order, new_status=None, new_date=None):
-    """Email client lors d'un changement de statut et/ou date de livraison (résilient)."""
+def _notify_order_update(order, new_status=None, new_date=None, new_payment=None):
+    """Email client lors d'un changement de statut, de date ou de paiement (résilient)."""
     if not order["customer_email"]:
         return
     parts = [f"Bonjour {order['customer_name']},"]
@@ -276,6 +276,10 @@ def _notify_order_update(order, new_status=None, new_date=None):
         except ValueError:
             pretty = new_date
         parts.append(f"Livraison prévue : {pretty}.")
+    if new_payment == "paid":
+        parts.append(
+            f"Votre paiement de {order['total']:,.0f} FCFA pour la commande #{order['id']} "
+            "a été confirmé. Merci !")
     parts.append("")
     parts.append("Merci de votre confiance.")
     parts.append("— Bûcheur Études & Business")
@@ -636,13 +640,24 @@ def payment_confirm(oid):
         abort(404)
     if not order_access(order):
         abort(404)
-    ref = request.form.get("reference", "").strip()
-    if not ref:
-        flash("Veuillez saisir la référence de votre paiement.", "error")
-        return redirect(url_for("payment", oid=oid))
-    execute("UPDATE orders SET reference=?, payment_status='paid' WHERE id=?",
-            (ref, oid))
-    flash("Paiement enregistré ! Nous vérifions votre transaction, votre commande sera confirmée sous peu.", "success")
+    if order["payment_status"] == "paid":
+        flash("Ce paiement a déjà été confirmé.", "info")
+        return redirect(url_for("order_success", oid=oid))
+    execute("UPDATE orders SET payment_status='paid' WHERE id=?", (oid,))
+    _notify_order_update(order, new_payment="paid")
+    admin_to = os.environ.get("ADMIN_NOTIFY_EMAIL") or os.environ.get("SMTP_FROM", "")
+    if admin_to:
+        method_label = "Wave" if order["payment_method"] == "wave" else "Orange Money"
+        try:
+            send_email(
+                admin_to,
+                f"Paiement confirmé — commande #{oid}",
+                f"Le client {order['customer_name']} ({order['customer_phone']}) vient de confirmer "
+                f"le paiement de {order['total']:,.0f} FCFA ({method_label}). "
+                "Vérifiez la réception sur votre compte.")
+        except Exception:
+            print(f"[email] échec notification admin paiement #{oid}")
+    flash("Paiement confirmé ! Merci, votre commande est en cours de traitement.", "success")
     return redirect(url_for("order_success", oid=oid))
 
 

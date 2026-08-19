@@ -11,22 +11,17 @@
       <h2>Paiement Wave</h2>
       <p style="color:var(--gray);">Commande n°{{ order.id }} · {{ order.total | money }}</p>
       <ol class="steps">
-        <li><b>1.</b> Cliquez sur « Payer avec Wave » : vous serez redirigé vers Wave.</li>
-        <li><b>2.</b> Validez le paiement de <b>{{ order.total | money }}</b> depuis votre compte Wave (expéditeur : {{ wave_account }}).</li>
-        <li><b>3.</b> Revenez sur cette page et saisissez la <b>référence de transaction</b> affichée dans votre application Wave.</li>
-        <li><b>4.</b> Cliquez sur « J'ai payé » — votre commande sera vérifiée puis confirmée.</li>
+        <li><b>1.</b> Cliquez sur « Payer avec Wave » : vous serez redirigé vers votre compte Wave.</li>
+        <li><b>2.</b> Validez le paiement du montant exact de <b>{{ order.total | money }}</b> (expéditeur : {{ wave_account }}).</li>
+        <li><b>3.</b> Revenez sur cette page et cliquez sur « J'ai payé » : le paiement est confirmé sur le site.</li>
       </ol>
       <a href="{{ url_for('payment_wave', oid=order.id) }}" target="_blank" class="btn btn-wave btn-block" style="font-size:16px; padding:15px;">
         🌊 Payer avec Wave ({{ order.total | money }})
       </a>
       <hr style="border:none; border-top:1px dashed rgba(255,255,255,0.12); margin:20px 0;">
-      <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}" data-validate data-loading>
+      <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}" data-loading>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="field">
-          <label for="wave-ref">Référence de la transaction Wave *</label>
-          <input type="text" id="wave-ref" name="reference" required placeholder="Ex : WAVE-XXXX-XXXX" data-rule="required">
-        </div>
-        <button type="submit" class="btn btn-green btn-block">✓ J'ai payé — Confirmer</button>
+        <button type="submit" class="btn btn-green btn-block" style="font-size:16px; padding:15px;">✓ J'ai payé {{ order.total | money }} — Confirmer</button>
       </form>
 
     {% elif order.payment_method == 'om' %}
@@ -36,16 +31,12 @@
       <ol class="steps">
         <li><b>1.</b> Composez <b>*144#</b> sur votre téléphone.</li>
         <li><b>2.</b> Choisissez « Payer » puis saisissez le numéro Bûcheur : <b>77 000 00 00</b>.</li>
-        <li><b>3.</b> Entrez le montant <b>{{ order.total | money }}</b> et validez avec votre code secret.</li>
-        <li><b>4.</b> Saisissez la <b>référence de la transaction</b> reçue par SMS ci-dessous.</li>
+        <li><b>3.</b> Entrez le montant exact <b>{{ order.total | money }}</b> et validez avec votre code secret.</li>
+        <li><b>4.</b> Revenez sur cette page et cliquez sur « J'ai payé » : le paiement est confirmé sur le site.</li>
       </ol>
-      <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}" data-validate data-loading>
+      <form method="post" action="{{ url_for('payment_confirm', oid=order.id) }}" data-loading>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="field">
-          <label for="om-ref">Référence de la transaction Orange Money *</label>
-          <input type="text" id="om-ref" name="reference" required placeholder="Ex : OM-XXXX-XXXX" data-rule="required">
-        </div>
-        <button type="submit" class="btn btn-om btn-block">✓ J'ai payé — Confirmer</button>
+        <button type="submit" class="btn btn-om btn-block" style="font-size:16px; padding:15px;">✓ J'ai payé {{ order.total | money }} — Confirmer</button>
       </form>
     {% endif %}
   </div>
