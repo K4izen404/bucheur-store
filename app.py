@@ -56,6 +56,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FORCE_HTTPS") == "1"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 init_db()
@@ -82,6 +83,13 @@ def inject_globals():
         "om_status": om_status(),
         "csrf_token": generate_csrf,
     }
+
+
+@app.before_request
+def make_session_permanent():
+    """Le panier et la connexion survivent à la fermeture du navigateur (30 jours)."""
+    if session.get("cart") or session.get("user_id"):
+        session.permanent = True
 
 
 @app.before_request
