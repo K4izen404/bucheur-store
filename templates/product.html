@@ -41,7 +41,7 @@
       {% endif %}
 
       {% if p.stock > 0 %}
-        <form method="post" action="{{ url_for('cart_add', pid=p.id) }}" data-add-cart>
+        <form method="post" action="{{ url_for('cart_add', pid=p.id) }}" data-add-cart data-ajax-cart>
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="qty-row">
             <label>Quantité :</label>
@@ -49,8 +49,13 @@
             <input type="number" id="qty-{{ p.id }}" name="qty" value="1" min="1" max="{{ p.stock }}">
             <button type="button" data-qty-btn="#qty-{{ p.id }}" data-dir="plus" style="background:var(--dark-3); border:1px solid rgba(255,255,255,0.12); color:var(--white); width:34px; height:34px; border-radius:9px; cursor:pointer; font-size:16px;">+</button>
           </div>
-          <button type="submit" class="btn btn-gold btn-block" style="font-size:16px; padding:15px;">🛒 Ajouter au panier</button>
+          <button type="submit" class="btn btn-gold btn-block" style="font-size:16px; padding:15px;">
+            {% if session.get('user_id') %}🛒 Ajouter au panier{% else %}🔒 Connexion requise — Ajouter au panier{% endif %}
+          </button>
         </form>
+        {% if not session.get('user_id') %}
+          <p class="login-hint">Vous devez être <a href="{{ url_for('login', next=request.path) }}">connecté</a> (compte vérifié) pour commander. <a href="{{ url_for('register') }}">Créer un compte</a> en 1 minute.</p>
+        {% endif %}
       {% else %}
         <button class="btn btn-dark btn-block" disabled>Rupture de stock</button>
       {% endif %}

@@ -6,10 +6,11 @@ import time
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 
-from flask import (Flask, abort, flash, redirect, render_template, request,
-                   session, url_for)
+from flask import (Flask, abort, flash, jsonify, redirect, render_template,
+                   request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from urllib.parse import urlparse
 
 from db import (ORDER_STATUS, PAYMENT_STATUS, WAVE_ACCOUNT, execute, init_db,
                 query)
@@ -149,6 +150,16 @@ def normalize_phone(phone):
     return phone.strip() if phone else ""
 
 
+def smtp_configured():
+    return bool(os.environ.get("SMTP_HOST"))
+
+
+def otp_dev_mode():
+    """Mode développement : affiche le code OTP à l'écran.
+    Uniquement si FLASK_ENV=development est explicitement défini (jamais par défaut)."""
+    return os.environ.get("FLASK_ENV") == "development" and not smtp_configured()
+
+
 def send_email(to_addr, subject, body):
     host = os.environ.get("SMTP_HOST")
     if not host:
@@ -183,7 +194,6 @@ def generate_otp(uid):
 
 def send_otp(user):
     code = generate_otp(user["id"])
-    label = user["email"] or f"+221 {user['phone']}"
     body = f"""Bonjour {user['name']},
 
 Votre code de vérification Bûcheur Études & Business est :
@@ -194,9 +204,7 @@ Ce code est valable {OTP_TTL_MINUTES} minutes. Si vous n'êtes pas à l'origine 
 
 — Bûcheur Études & Business
 Rufisque & Nord-Foire"""
-    if user["email"]:
-        return send_email(user["email"], "Votre code de vérification Bûcheur", body), code
-    return False, code
+    return send_email(user["email"], "Votre code de vérification Bûcheur", body), code
 
 
 def login_required(f):
@@ -207,6 +215,30 @@ def login_required(f):
         if not session.get("user_id"):
             flash("Connectez-vous pour continuer.", "warning")
             return redirect(url_for("login", next=request.path))
+        return f(*a, **k)
+
+    return wrapper
+
+
+def verified_required(f):
+    """Compte connecté ET vérifié (email confirmé par OTP)."""
+    from functools import wraps
+
+    @wraps(f)
+    def wrapper(*a, **k):
+        is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        if not session.get("user_id"):
+            if is_xhr:
+                return jsonify({"ok": False, "need_login": True}), 401
+            flash("Créez un compte ou connectez-vous pour ajouter des articles au panier.", "warning")
+            return redirect(url_for("login", next=request.path))
+        user = query("SELECT verified FROM users WHERE id=?", (session["user_id"],), one=True)
+        if not user or not user["verified"]:
+            session.pop("user_id", None)
+            if is_xhr:
+                return jsonify({"ok": False, "need_login": True}), 401
+            flash("Votre compte doit être vérifié (email confirmé) pour continuer.", "warning")
+            return redirect(url_for("login"))
         return f(*a, **k)
 
     return wrapper
@@ -231,7 +263,17 @@ def money(value):
     return f"{value:,.0f} F".replace(",", " ")
 
 
+def wa_number(value):
+    digits = re.sub(r"\D", "", value or "")
+    if digits.startswith("221") and len(digits) > 9:
+        digits = digits[3:]
+    if len(digits) == 9:
+        return digits
+    return digits[-9:] if len(digits) > 9 else digits
+
+
 app.jinja_env.filters["money"] = money
+app.jinja_env.filters["wa_number"] = wa_number
 app.jinja_env.globals["PAYMENT_STATUS"] = PAYMENT_STATUS
 app.jinja_env.globals["ORDER_STATUS"] = ORDER_STATUS
 
@@ -334,6 +376,7 @@ def product(pid):
 
 
 @app.route("/panier/ajouter/<int:pid>", methods=["POST"])
+@verified_required
 def cart_add(pid):
     p = query("SELECT * FROM products WHERE id=? AND active=1", (pid,), one=True)
     if not p:
@@ -347,11 +390,14 @@ def cart_add(pid):
     else:
         cart[key] = {"qty": qty, "price": p["price"]}
     session["cart"] = cart
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "count": cart_count(), "name": p["name"]})
     flash(f"{p['name']} ajouté au panier.", "success")
     return redirect(request.referrer or url_for("home"))
 
 
 @app.route("/panier")
+@verified_required
 def cart():
     cart = session.get("cart", {})
     items = []
@@ -367,6 +413,7 @@ def cart():
 
 
 @app.route("/panier/modifier/<int:pid>", methods=["POST"])
+@verified_required
 def cart_update(pid):
     cart = session.get("cart", {})
     qty = max(0, int(request.form.get("qty", 0)))
@@ -384,6 +431,7 @@ def cart_update(pid):
 
 
 @app.route("/commande", methods=["GET", "POST"])
+@verified_required
 def checkout():
     cart = session.get("cart", {})
     if not cart:
@@ -400,20 +448,21 @@ def checkout():
         total += subtotal
         items.append({"product": p, "qty": item["qty"], "subtotal": subtotal})
 
-    user = None
-    if session.get("user_id"):
-        user = query("SELECT * FROM users WHERE id=?", (session["user_id"],), one=True)
+    user = query("SELECT * FROM users WHERE id=?", (session["user_id"],), one=True)
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
-        phone = request.form.get("phone", "").strip()
+        phone = normalize_phone(request.form.get("phone", "").strip())
         email = request.form.get("email", "").strip()
         address = request.form.get("address", "").strip()
         method = request.form.get("payment_method", "")
         note = request.form.get("note", "").strip()
 
-        if not name or not phone:
-            flash("Nom et téléphone sont obligatoires.", "error")
+        if not name:
+            flash("Le nom est obligatoire.", "error")
+            return redirect(url_for("checkout"))
+        if not phone or len(re.sub(r"\D", "", phone)) != 9:
+            flash("Numéro de téléphone invalide. Format sénégalais attendu (ex : 77 123 45 67).", "error")
             return redirect(url_for("checkout"))
         if method not in ("wave", "om", "cod"):
             flash("Choisissez un moyen de paiement.", "error")
@@ -508,13 +557,20 @@ def register():
         return redirect(url_for("account"))
     if request.method == "POST":
         name = request.form.get("name", "").strip()
-        id_type = request.form.get("id_type", "")
-        identifier = request.form.get("identifier", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        phone = request.form.get("phone", "").strip()
         password = request.form.get("password", "")
         confirm = request.form.get("confirm", "")
 
-        if not name or not identifier or not password:
+        if not name or not email or not password:
             flash("Tous les champs sont obligatoires.", "error")
+            return redirect(url_for("register"))
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+            flash("Adresse email invalide.", "error")
+            return redirect(url_for("register"))
+        phone = normalize_phone(phone)
+        if not phone or len(re.sub(r"\D", "", phone)) != 9:
+            flash("Numéro de téléphone invalide. Format sénégalais attendu (ex : 77 123 45 67).", "error")
             return redirect(url_for("register"))
         if password != confirm:
             flash("Les mots de passe ne correspondent pas.", "error")
@@ -522,28 +578,12 @@ def register():
         if len(password) < 6:
             flash("Le mot de passe doit faire au moins 6 caractères.", "error")
             return redirect(url_for("register"))
-        if id_type not in ("email", "phone"):
-            flash("Choisissez un identifiant valide.", "error")
+        if query("SELECT id FROM users WHERE email=?", (email,), one=True):
+            flash("Un compte existe déjà avec cet email.", "error")
             return redirect(url_for("register"))
-
-        if id_type == "email":
-            email = identifier.lower()
-            phone = None
-            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-                flash("Adresse email invalide.", "error")
-                return redirect(url_for("register"))
-            if query("SELECT id FROM users WHERE email=?", (email,), one=True):
-                flash("Un compte existe déjà avec cet email.", "error")
-                return redirect(url_for("register"))
-        else:
-            email = None
-            phone = normalize_phone(identifier)
-            if not phone or len(re.sub(r"\D", "", phone)) != 9:
-                flash("Numéro de téléphone invalide (ex : 77 123 45 67).", "error")
-                return redirect(url_for("register"))
-            if query("SELECT id FROM users WHERE phone=?", (phone,), one=True):
-                flash("Un compte existe déjà avec ce numéro.", "error")
-                return redirect(url_for("register"))
+        if not smtp_configured() and not otp_dev_mode():
+            flash("Le service d'inscription est temporairement indisponible. Contactez l'administration : +221 77 757 27 76.", "error")
+            return redirect(url_for("register"))
 
         uid = execute(
             "INSERT INTO users (name, email, phone, password_hash, verified) VALUES (?,?,?,?,0)",
@@ -551,8 +591,12 @@ def register():
         user = query("SELECT * FROM users WHERE id=?", (uid,), one=True)
         delivered, code = send_otp(user)
         session["pending_otp"] = uid
-        flash("Vérifiez votre email ou votre téléphone : un code de confirmation vous a été envoyé.", "info")
-        return render_template("auth/otp.html", user=user, dev_code=code if not delivered else None)
+        if not delivered and not otp_dev_mode():
+            execute("DELETE FROM users WHERE id=?", (uid,))
+            flash("Impossible d'envoyer le code de vérification. Vérifiez la configuration email du site, ou contactez l'administration : +221 77 757 27 76.", "error")
+            return redirect(url_for("register"))
+        flash("Vérifiez votre boîte mail : un code de confirmation vous a été envoyé.", "info")
+        return render_template("auth/otp.html", user=user, dev_code=code if otp_dev_mode() else None)
 
     return render_template("auth/register.html")
 
@@ -590,9 +634,15 @@ def otp_resend():
     user = query("SELECT * FROM users WHERE id=?", (uid,), one=True)
     if not user:
         return redirect(url_for("register"))
+    if not smtp_configured() and not otp_dev_mode():
+        flash("Le service d'envoi est indisponible. Contactez l'administration : +221 77 757 27 76.", "error")
+        return redirect(url_for("register"))
     delivered, code = send_otp(user)
-    flash("Un nouveau code vient d'être envoyé.", "info")
-    return render_template("auth/otp.html", user=user, dev_code=code if not delivered else None)
+    if not delivered and not otp_dev_mode():
+        flash("Impossible d'envoyer le code. Réessayez dans quelques instants.", "error")
+        return render_template("auth/otp.html", user=user, dev_code=None)
+    flash("Un nouveau code vient d'être envoyé par email.", "info")
+    return render_template("auth/otp.html", user=user, dev_code=code if otp_dev_mode() else None)
 
 
 @app.route("/connexion", methods=["GET", "POST"])
@@ -600,14 +650,13 @@ def login():
     if session.get("user_id"):
         return redirect(url_for("home"))
     if request.method == "POST":
-        identifier = request.form.get("identifier", "").strip().lower()
+        email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
-        key = f"{identifier}|{request.remote_addr}"
+        key = f"{email}|{request.remote_addr}"
         if not login_limiter(key):
             flash("Trop de tentatives. Réessayez dans 10 minutes.", "error")
             return redirect(url_for("login"))
-        user = query(
-            "SELECT * FROM users WHERE email=? OR phone=?", (identifier, identifier), one=True)
+        user = query("SELECT * FROM users WHERE email=?", (email,), one=True)
         if user and user["verified"] and check_password_hash(user["password_hash"], password):
             login_success(key)
             session["user_id"] = user["id"]
@@ -617,7 +666,7 @@ def login():
                 nxt = url_for("home")
             return redirect(nxt)
         login_failure(key)
-        flash("Identifiant ou mot de passe incorrect.", "error")
+        flash("Email ou mot de passe incorrect.", "error")
     return render_template("auth/login.html")
 
 
@@ -850,15 +899,18 @@ def admin_users():
 @admin_required
 def admin_user_add():
     name = request.form.get("name", "").strip()
-    email = request.form.get("email", "").strip().lower() or None
+    email = request.form.get("email", "").strip().lower()
     phone = request.form.get("phone", "").strip() or None
     password = request.form.get("password", "")
     is_admin = 1 if request.form.get("is_admin") else 0
 
-    if not name or not password or len(password) < 6:
-        flash("Nom et mot de passe (min. 6 caractères) obligatoires.", "error")
+    if not name or not email or not password or len(password) < 6:
+        flash("Nom, email et mot de passe (min. 6 caractères) obligatoires.", "error")
         return redirect(url_for("admin_users"))
-    if email and query("SELECT id FROM users WHERE email=?", (email,), one=True):
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        flash("Adresse email invalide.", "error")
+        return redirect(url_for("admin_users"))
+    if query("SELECT id FROM users WHERE email=?", (email,), one=True):
         flash("Cet email est déjà utilisé.", "error")
         return redirect(url_for("admin_users"))
     if phone:
@@ -879,15 +931,18 @@ def admin_user_edit(uid):
     if not user:
         abort(404)
     name = request.form.get("name", "").strip()
-    email = request.form.get("email", "").strip().lower() or None
+    email = request.form.get("email", "").strip().lower()
     phone = request.form.get("phone", "").strip() or None
     is_admin = 1 if request.form.get("is_admin") else 0
     new_password = request.form.get("new_password", "")
 
-    if not name:
-        flash("Le nom est obligatoire.", "error")
+    if not name or not email:
+        flash("Le nom et l'email sont obligatoires.", "error")
         return redirect(url_for("admin_users"))
-    if email and query("SELECT id FROM users WHERE email=? AND id != ?", (email, uid), one=True):
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        flash("Adresse email invalide.", "error")
+        return redirect(url_for("admin_users"))
+    if query("SELECT id FROM users WHERE email=? AND id != ?", (email, uid), one=True):
         flash("Cet email est déjà utilisé par un autre compte.", "error")
         return redirect(url_for("admin_users"))
     if phone:

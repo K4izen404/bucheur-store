@@ -27,7 +27,8 @@ Le site tourne sur http://127.0.0.1:5000
 - **Secret key** : générée aléatoirement au premier lancement (stockée en base). Surchargée par la variable d'environnement `SECRET_KEY`.
 - **CSRF** : jeton requis sur tous les formulaires (POST) — refusés sans jeton valide.
 - **IDOR** : les pages de commande/paiement ne sont accessibles qu'au client concerné (session ou compte connecté).
-- **Comptes vérifiés** : inscription par email OU téléphone, validation par code OTP à 6 chiffres (10 min de validité) avant la première connexion.
+- **Comptes vérifiés** : inscription par **email uniquement** (le téléphone est un simple contact, pas un identifiant), validation par code OTP à 6 chiffres (10 min de validité) avant la première connexion. L'email est obligatoire et unique en base.
+- **Panier & commande réservés aux comptes connectés et vérifiés** : sans compte vérifié, l'ajout au panier invite à se connecter (retour automatique après connexion).
 - **Brute force** : verrouillage 10 min après 5 échecs de connexion (client et admin).
 - **Upload** : extensions filtrées + vérification du contenu réel de l'image (Pillow).
 - **En-têtes HTTP** : X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy, Content-Security-Policy.
@@ -35,7 +36,7 @@ Le site tourne sur http://127.0.0.1:5000
 - **Injection SQL / XSS** : requêtes paramétrées + échappement automatique Jinja2.
 
 Variables d'environnement utiles : `SECRET_KEY`, `ADMIN_PASSWORD` (seed), `FORCE_HTTPS=1` (cookie Secure + HSTS).
-Envoyer les codes OTP par email : `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (ex. Gmail). Sans SMTP configuré, le code s'affiche sur la page en mode développement.
+**SMTP obligatoire pour l'inscription** : `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (ex. Gmail). Sans SMTP configuré, l'inscription affiche un message d'indisponibilité. Mode développement uniquement (jamais actif par défaut) : `FLASK_ENV=development` sans SMTP affiche le code OTP sur la page.
 
 ## Structure
 
@@ -59,12 +60,13 @@ bucheur_store/
 ## Fonctionnalités
 
 **Client**
-- Catalogue avec filtres (modèle, couleur, stockage, état) + recherche + tri
-- Panier en session, tunnel de commande
+- Catalogue avec filtres (modèle, couleur, stockage, état, repliables sur mobile) + recherche + tri
+- Panier en session (ajout AJAX sans rechargement, badge mis à jour), tunnel de commande en 3 étapes
+- Téléphone du client obligatoire et vérifié au moment de la commande (pré-rempli depuis le compte), cliquable (appel/WhatsApp) côté admin
 - Paiement Wave (redirection vers le lien officiel + saisie de la référence), Orange Money (désactivable, « bientôt »), à la livraison
-- Comptes clients : inscription (email ou téléphone) + vérification OTP, connexion, historique des commandes
+- Comptes clients : inscription par email + vérification OTP, connexion, historique des commandes
 - Contact : WhatsApp +221 77 757 27 76 (bouton flottant), livraison à Rufisque & Nord-Foire
-- Design premium sombre + animations (reveal au scroll, hover cards, badge panier animé, checkmark animé)
+- Design premium sombre + animations, toasts de notification, validation des formulaires côté client, accessibilité (zones tactiles ≥ 44 px)
 
 **Admin**
 - Tableau de bord : CA total/jour/semaine, répartition Wave/OM, graphique 7 jours, meilleures ventes

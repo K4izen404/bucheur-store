@@ -6,16 +6,16 @@
   <div class="auth-card reveal">
     <img src="{{ url_for('static', filename='uploads/logo.jpg') }}" alt="Bûcheur Études & Business" style="width:64px; height:64px; border-radius:14px; margin:0 auto 16px; display:block;">
     <h1>Bon retour 👋</h1>
-    <p class="sub">Connectez-vous avec votre email ou votre numéro de téléphone.</p>
-    <form method="post">
+    <p class="sub">Connectez-vous avec votre adresse email.</p>
+    <form method="post" data-validate data-loading>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="field">
-        <label>Email ou téléphone</label>
-        <input type="text" name="identifier" required placeholder="vous@email.com ou 77 123 45 67" autocomplete="username">
+        <label for="login-email">Adresse email</label>
+        <input type="email" id="login-email" name="email" required placeholder="vous@email.com" autocomplete="email" data-rule="email">
       </div>
       <div class="field">
-        <label>Mot de passe</label>
-        <input type="password" name="password" required placeholder="••••••••">
+        <label for="login-password">Mot de passe</label>
+        <input type="password" id="login-password" name="password" required placeholder="••••••••" autocomplete="current-password">
       </div>
       <button type="submit" class="btn btn-gold btn-block">Se connecter</button>
     </form>

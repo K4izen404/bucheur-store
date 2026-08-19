@@ -1,0 +1,18 @@
+{% macro checkout_steps(step) %}
+<div class="steps-bar" role="navigation" aria-label="Étapes de commande">
+  <div class="step {{ 'done' if step >= 1 }}">
+    <span class="step-num">{{ '✓' if step > 1 else '1' }}</span>
+    <span class="step-label">Infos</span>
+  </div>
+  <div class="step-line {{ 'done' if step >= 2 }}"></div>
+  <div class="step {{ 'done' if step >= 2 }}">
+    <span class="step-num">{{ '✓' if step > 2 else '2' }}</span>
+    <span class="step-label">Paiement</span>
+  </div>
+  <div class="step-line {{ 'done' if step >= 3 }}"></div>
+  <div class="step {{ 'done' if step >= 3 }}">
+    <span class="step-num">3</span>
+    <span class="step-label">Confirmation</span>
+  </div>
+</div>
+{% endmacro %}

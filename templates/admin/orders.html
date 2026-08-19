@@ -30,7 +30,15 @@
     <tr>
       <td><a href="{{ url_for('admin_order_detail', oid=o.id) }}"><b>#{{ o.id }}</b></a></td>
       <td>{{ o.customer_name }}</td>
-      <td>{{ o.customer_phone }}</td>
+      <td>
+        {% set wa = o.customer_phone | wa_number %}
+        {% if wa %}
+          <a href="tel:+221{{ wa }}" style="color:var(--white);">{{ o.customer_phone }}</a><br>
+          <a href="https://wa.me/221{{ wa }}" target="_blank" style="font-size:11.5px;">💬 WhatsApp</a>
+        {% else %}
+          {{ o.customer_phone }}
+        {% endif %}
+      </td>
       <td style="color:var(--gold); font-weight:700;">{{ o.total | money }}</td>
       <td>
         {% if o.payment_method == 'wave' %}🌊 Wave{% elif o.payment_method == 'om' %}🟠 OM{% else %}💵 Livraison{% endif %}

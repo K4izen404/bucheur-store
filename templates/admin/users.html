@@ -13,8 +13,8 @@
       <input type="text" name="name" required placeholder="Nom du client ou employé">
     </div>
     <div class="field">
-      <label>Email</label>
-      <input type="email" name="email" placeholder="vous@email.com">
+      <label>Email *</label>
+      <input type="email" name="email" required placeholder="vous@email.com">
     </div>
     <div class="field">
       <label>Téléphone</label>
@@ -86,8 +86,8 @@
       <input type="text" name="name" required value="{{ u.name }}">
     </div>
     <div class="field">
-      <label>Email</label>
-      <input type="email" name="email" value="{{ u.email or '' }}">
+      <label>Email *</label>
+      <input type="email" name="email" required value="{{ u.email or '' }}">
     </div>
     <div class="field">
       <label>Téléphone</label>

@@ -12,7 +12,16 @@
     <h3>👤 Client</h3>
     <table>
       <tr><td style="color:var(--gray);">Nom</td><td><b>{{ order.customer_name }}</b></td></tr>
-      <tr><td style="color:var(--gray);">Téléphone</td><td>{{ order.customer_phone }}</td></tr>
+      <tr><td style="color:var(--gray);">Téléphone</td>
+        <td>
+          {% set wa = order.customer_phone | wa_number %}
+          {% if wa %}
+            <a href="tel:+221{{ wa }}" style="color:var(--white);">{{ order.customer_phone }}</a>
+            <a href="https://wa.me/221{{ wa }}" target="_blank" class="btn btn-outline btn-sm" style="margin-left:8px;">💬 WhatsApp</a>
+          {% else %}
+            {{ order.customer_phone }}
+          {% endif %}
+        </td></tr>
       <tr><td style="color:var(--gray);">Email</td><td>{{ order.customer_email or '—' }}</td></tr>
       <tr><td style="color:var(--gray);">Adresse</td><td>{{ order.address or '—' }}</td></tr>
       <tr><td style="color:var(--gray);">Date</td><td>{{ order.created_at }}</td></tr>

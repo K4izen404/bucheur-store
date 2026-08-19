@@ -14,8 +14,22 @@
   <div class="panel reveal" style="max-width:560px; margin-bottom:30px;">
     <h3>Profil</h3>
     <div class="summary-line"><span>Nom</span><span><b>{{ user.name }}</b></span></div>
-    <div class="summary-line"><span>Email</span><span>{{ user.email }}</span></div>
-    {% if user.phone %}<div class="summary-line"><span>Téléphone</span><span>{{ user.phone }}</span></div>{% endif %}
+    <div class="summary-line">
+      <span>Email</span>
+      <span>
+        {{ user.email }}
+        {% if user.verified %}
+          <span class="badge-pill badge-paid">✓ Vérifié</span>
+        {% else %}
+          <span class="badge-pill badge-pending">En attente de vérification</span>
+        {% endif %}
+      </span>
+    </div>
+    {% if user.phone %}
+      <div class="summary-line"><span>Téléphone</span><span>{{ user.phone }}</span></div>
+    {% else %}
+      <div class="summary-line"><span>Téléphone</span><span class="badge-pill badge-pending">Non renseigné</span></div>
+    {% endif %}
     <div class="summary-line"><span>Membre depuis</span><span>{{ user.created_at[:10] }}</span></div>
   </div>
 

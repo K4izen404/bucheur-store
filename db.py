@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from pathlib import Path
 
@@ -8,7 +9,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    email TEXT UNIQUE,
+    email TEXT NOT NULL UNIQUE,
     phone TEXT,
     password_hash TEXT NOT NULL,
     is_admin INTEGER DEFAULT 0,
@@ -115,9 +116,7 @@ def init_db():
     except sqlite3.OperationalError:
         pass
     try:
-        conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) "
-            "WHERE phone IS NOT NULL AND phone != ''")
+        conn.execute("DROP INDEX IF EXISTS idx_users_phone")
     except sqlite3.OperationalError:
         pass
     conn.execute("UPDATE users SET verified = 1 WHERE verified IS NULL OR verified = 0 AND otp_code IS NULL")
@@ -126,42 +125,57 @@ def init_db():
 
 
 def migrate_users(conn):
-    """Reconstruit users (email optionnel) + orders/order_items (FK réparées).
-    Nécessaire car SQLite ne peut pas retirer une contrainte NOT NULL,
+    """Reconstruit users (email obligatoire + UNIQUE) + orders/order_items (FK réparées).
+    Nécessaire car SQLite ne peut pas modifier une contrainte en place,
     et car le rename de users casse la FK de orders."""
     cols = {r["name"]: r for r in conn.execute("PRAGMA table_info(users)")}
     email = cols.get("email")
+    users_sql = conn.execute("SELECT sql FROM sqlite_master WHERE name='users'").fetchone()
+    email_sql = (users_sql["sql"] or "") if users_sql else ""
     email_notnull = bool(email and email["notnull"])
+    email_unique = bool(re.search(r"email\s+TEXT\s+NOT NULL\s+UNIQUE", email_sql))
+    email_ok = email_notnull and email_unique
     orders_sql = conn.execute("SELECT sql FROM sqlite_master WHERE name='orders'").fetchone()
     fk_casse = orders_sql and "users_old" in (orders_sql["sql"] or "")
-    if not email_notnull and not fk_casse:
+    if email_ok and not fk_casse:
         return
-    print("Migration : reconstruction users / orders / order_items (email devient optionnel)")
-    if email_notnull:
-        conn.execute("ALTER TABLE users RENAME TO users_old")
-        conn.execute("""
-            CREATE TABLE users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT UNIQUE,
-                phone TEXT,
-                password_hash TEXT NOT NULL,
-                is_admin INTEGER DEFAULT 0,
-                verified INTEGER DEFAULT 0,
-                otp_code TEXT,
-                otp_expires TEXT,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        conn.execute(
-            """INSERT INTO users (id, name, email, phone, password_hash, is_admin, verified,
-                                  otp_code, otp_expires, created_at)
-               SELECT id, name, email, phone, password_hash, is_admin, 1, NULL, NULL, created_at
-               FROM users_old""")
-        conn.execute("DROP TABLE users_old")
+    print("Migration : reconstruction users / orders / order_items (email obligatoire + UNIQUE)")
+
+    no_email = conn.execute(
+        "SELECT id, name, is_admin FROM users WHERE email IS NULL OR TRIM(email)=''").fetchall()
+    for u in no_email:
+        if u["is_admin"]:
+            raise RuntimeError(
+                f"Migration impossible : le compte admin « {u['name']} » n'a pas d'email.")
+        print(f"  suppression du compte sans email : {u['name']} (il ne peut plus se connecter)")
+        conn.execute("UPDATE orders SET user_id=NULL WHERE user_id=?", (u["id"],))
+        conn.execute("DELETE FROM users WHERE id=?", (u["id"],))
 
     conn.execute("ALTER TABLE orders RENAME TO orders_old")
     conn.execute("ALTER TABLE order_items RENAME TO order_items_old")
+
+    conn.execute("ALTER TABLE users RENAME TO users_old")
+    conn.execute("""
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            phone TEXT,
+            password_hash TEXT NOT NULL,
+            is_admin INTEGER DEFAULT 0,
+            verified INTEGER DEFAULT 0,
+            otp_code TEXT,
+            otp_expires TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute(
+        """INSERT INTO users (id, name, email, phone, password_hash, is_admin, verified,
+                              otp_code, otp_expires, created_at)
+           SELECT id, name, email, phone, password_hash, is_admin, verified,
+                  otp_code, otp_expires, created_at
+           FROM users_old""")
+
     conn.execute("""
         CREATE TABLE orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -197,6 +211,7 @@ def migrate_users(conn):
     conn.execute("INSERT INTO order_items SELECT * FROM order_items_old")
     conn.execute("DROP TABLE order_items_old")
     conn.execute("DROP TABLE orders_old")
+    conn.execute("DROP TABLE users_old")
 
 
 def query(sql, args=(), one=False):

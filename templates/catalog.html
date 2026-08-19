@@ -21,8 +21,9 @@
     </form>
   </div>
 
+  <button type="button" class="filter-toggle btn btn-outline btn-sm" style="display:none;">⚙️ Filtres</button>
   <div class="split" style="grid-template-columns: 220px 1fr;">
-    <aside class="panel reveal d1" style="padding:20px;">
+    <aside class="panel reveal d1 filter-aside" style="padding:20px;">
       <h3 style="font-size:14px; margin-bottom:14px;">Filtres</h3>
       <form method="get" id="filter-form">
         {% if filters.get('q') %}<input type="hidden" name="q" value="{{ filters.get('q') }}">{% endif %}

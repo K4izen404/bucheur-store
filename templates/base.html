@@ -7,7 +7,7 @@
   <link rel="icon" href="{{ url_for('static', filename='uploads/logo.jpg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body data-logged-in="{{ '1' if session.get('user_id') else '0' }}">
   <header>
     <nav class="navbar">
       <a href="{{ url_for('home') }}" class="brand">
@@ -39,13 +39,14 @@
   <main>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="flashes">
+        <div class="flashes" id="flash-container">
           {% for cat, msg in messages %}
             <div class="flash {{ cat }}">{{ msg }}</div>
           {% endfor %}
         </div>
       {% endif %}
     {% endwith %}
+    <div class="toasts" id="toast-container" aria-live="polite"></div>
     {% block content %}{% endblock %}
   </main>
 

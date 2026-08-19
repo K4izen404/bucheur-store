@@ -1,35 +1,37 @@
 {% extends "base.html" %}
+{% from "_steps.html" import checkout_steps %}
 {% block title %}Commande{% endblock %}
 {% block content %}
 
 <section class="section">
+  {{ checkout_steps(1) }}
   <div class="section-head reveal">
     <h2>Finaliser ma commande</h2>
   </div>
 
   <div class="split">
-    <form method="post" class="panel reveal" style="grid-column:1;">
+    <form method="post" class="panel reveal" style="grid-column:1;" data-validate data-loading>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <h3>👤 Vos informations</h3>
       <div class="field">
-        <label>Nom complet *</label>
-        <input type="text" name="name" required value="{{ user['name'] if user }}">
+        <label for="co-name">Nom complet *</label>
+        <input type="text" id="co-name" name="name" required value="{{ user['name'] if user }}" data-rule="required">
       </div>
       <div class="field">
-        <label>Téléphone *</label>
-        <input type="tel" name="phone" required placeholder="77 000 00 00" value="{{ user['phone'] if user }}">
+        <label for="co-phone">Téléphone * <span class="tag-line">(téléphone du compte pré-rempli, modifiable — ex : 77 123 45 67)</span></label>
+        <input type="tel" id="co-phone" name="phone" required placeholder="77 000 00 00" value="{{ user['phone'] if user }}" data-rule="phone">
       </div>
       <div class="field">
-        <label>Email (optionnel)</label>
-        <input type="email" name="email" value="{{ user['email'] if user }}">
+        <label for="co-email">Email (optionnel)</label>
+        <input type="email" id="co-email" name="email" value="{{ user['email'] if user }}" data-rule="email">
       </div>
       <div class="field">
-        <label>Adresse de livraison</label>
-        <input type="text" name="address" placeholder="Quartier, ville…">
+        <label for="co-address">Adresse de livraison</label>
+        <input type="text" id="co-address" name="address" placeholder="Quartier, ville…">
       </div>
       <div class="field">
-        <label>Note (optionnel)</label>
-        <textarea name="note" placeholder="Précisions sur la livraison…"></textarea>
+        <label for="co-note">Note (optionnel)</label>
+        <textarea id="co-note" name="note" placeholder="Précisions sur la livraison…"></textarea>
       </div>
 
       <h3 style="margin-top:20px;">💳 Moyen de paiement</h3>
