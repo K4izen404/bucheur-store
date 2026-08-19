@@ -1153,6 +1153,7 @@ def admin_user_delete(uid):
         flash("Impossible de supprimer le dernier administrateur.", "error")
         return redirect(url_for("admin_users"))
     execute("UPDATE orders SET user_id=NULL WHERE user_id=?", (uid,))
+    execute("DELETE FROM carts WHERE user_id=?", (uid,))
     execute("DELETE FROM users WHERE id=?", (uid,))
     flash(f"Utilisateur « {user['name']} » supprimé.", "info")
     return redirect(url_for("admin_users"))
