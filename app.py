@@ -1051,6 +1051,8 @@ def admin_orders():
     if status in ORDER_STATUS:
         sql += " AND order_status=?"
         args.append(status)
+    else:
+        sql += " AND order_status != 'cancelled'"
     if payment in PAYMENT_STATUS:
         sql += " AND payment_status=?"
         args.append(payment)
