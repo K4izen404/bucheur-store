@@ -24,7 +24,7 @@
   {% if orders %}
   <table>
     <tr>
-      <th>#</th><th>Client</th><th>Téléphone</th><th>Total</th><th>Paiement</th><th>Statut paiement</th><th>Statut</th><th>Date</th>
+      <th>#</th><th>Client</th><th>Téléphone</th><th>Total</th><th>Paiement</th><th>Statut paiement</th><th>Statut</th><th>Modifier</th><th>Date</th>
     </tr>
     {% for o in orders %}
     <tr>
@@ -45,6 +45,16 @@
       </td>
       <td><span class="badge-pill {{ 'badge-paid' if o.payment_status == 'paid' else ('badge-failed' if o.payment_status == 'failed' else 'badge-pending') }}">{{ PAYMENT_STATUS[o.payment_status] }}</span></td>
       <td><span class="badge-pill badge-order">{{ ORDER_STATUS[o.order_status] }}</span></td>
+      <td>
+        <form method="post" action="{{ url_for('admin_order_status', oid=o.id) }}" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <select name="order_status" style="min-width:150px;" onchange="this.form.submit()">
+            {% for k, v in ORDER_STATUS.items() %}
+              <option value="{{ k }}" {{ 'selected' if o.order_status == k }}>{{ v }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </td>
       <td style="color:var(--gray); font-size:12.5px;">{{ o.created_at[:16] }}</td>
     </tr>
     {% endfor %}
