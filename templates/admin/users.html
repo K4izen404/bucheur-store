@@ -60,7 +60,8 @@
       <td style="white-space:nowrap;">
         <button class="btn btn-outline btn-sm" onclick="openEdit({{ u.id }})">Modifier</button>
         {% if u.id != session.get('user_id') %}
-        <form method="post" action="{{ url_for('admin_user_delete', uid=u.id) }}" style="display:inline;" onsubmit="return confirm('Supprimer « {{ u.name }} » ? Ses commandes seront conservées.');">
+        <form method="post" action="{{ url_for('admin_user_delete', uid=u.id) }}" style="display:inline;"
+              onsubmit="{% if u.is_admin %}var p = prompt('Mot de passe requis pour supprimer cet administrateur :'); if (!p) return false; var i = document.createElement('input'); i.type='hidden'; i.name='password'; i.value=p; this.appendChild(i);{% endif %}return confirm('Supprimer « {{ u.name }} » ? Ses commandes seront conservées.');">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-red btn-sm">Suppr.</button>
         </form>

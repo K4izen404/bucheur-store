@@ -1154,10 +1154,15 @@ def admin_user_delete(uid):
     if uid == session["user_id"]:
         flash("Vous ne pouvez pas supprimer votre propre compte.", "error")
         return redirect(url_for("admin_users"))
-    if user["is_admin"] and query(
-            "SELECT COUNT(*) c FROM users WHERE is_admin=1", one=True)["c"] <= 1:
-        flash("Impossible de supprimer le dernier administrateur.", "error")
-        return redirect(url_for("admin_users"))
+    if user["is_admin"]:
+        current = query("SELECT password_hash FROM users WHERE id=?", (session["user_id"],), one=True)
+        pwd = request.form.get("password", "")
+        if not current or not check_password_hash(current["password_hash"], pwd):
+            flash("Suppression d'un administrateur refusée : mot de passe requis.", "error")
+            return redirect(url_for("admin_users"))
+        if query("SELECT COUNT(*) c FROM users WHERE is_admin=1", one=True)["c"] <= 1:
+            flash("Impossible de supprimer le dernier administrateur.", "error")
+            return redirect(url_for("admin_users"))
     execute("UPDATE orders SET user_id=NULL WHERE user_id=?", (uid,))
     execute("DELETE FROM carts WHERE user_id=?", (uid,))
     execute("DELETE FROM users WHERE id=?", (uid,))
