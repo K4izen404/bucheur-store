@@ -685,7 +685,9 @@ def login():
 
 @app.route("/deconnexion", methods=["POST"])
 def logout():
-    save_cart(session.get("user_id"))
+    uid = session.get("user_id")
+    if uid and query("SELECT id FROM users WHERE id=?", (uid,), one=True):
+        save_cart(uid)
     session.clear()
     flash("Vous êtes déconnecté.", "info")
     return redirect(url_for("home"))
@@ -695,6 +697,10 @@ def logout():
 @login_required
 def account():
     user = query("SELECT * FROM users WHERE id=?", (session["user_id"],), one=True)
+    if not user:
+        session.clear()
+        flash("Votre compte n'existe plus.", "error")
+        return redirect(url_for("login"))
     orders = query(
         "SELECT * FROM orders WHERE user_id=? ORDER BY id DESC", (user["id"],))
     return render_template("account.html", user=user, orders=orders)
