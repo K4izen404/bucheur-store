@@ -741,6 +741,53 @@ footer {
 }
 .steps-bar .step-line.done { background: var(--gold); }
 
+/* ---------------- progression de commande (style Jumia) ---------------- */
+
+.order-progress {
+  display: flex;
+  align-items: flex-start;
+  max-width: 420px;
+}
+.order-progress.cancelled {
+  display: block;
+  padding: 6px 0;
+}
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 72px;
+  text-align: center;
+}
+.progress-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--dark-3);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s;
+}
+.progress-step.done .progress-dot {
+  background: linear-gradient(120deg, var(--gold-light), var(--gold));
+  border-color: transparent;
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.5);
+}
+.progress-label {
+  font-size: 11px;
+  color: var(--gray);
+  font-weight: 600;
+}
+.progress-step.done .progress-label { color: var(--gold); }
+.progress-line {
+  flex: 1;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 7px 4px 0;
+  transition: background 0.3s;
+}
+.progress-line.done { background: var(--gold); }
+
 /* ---------------- toasts (JS) ---------------- */
 
 .toasts {

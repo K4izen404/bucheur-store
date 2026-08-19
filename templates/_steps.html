@@ -16,3 +16,26 @@
   </div>
 </div>
 {% endmacro %}
+
+{% macro order_progress(status) %}
+{# Progression Jumia : reçue → préparée → expédiée → livrée #}
+{% set stages = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'] %}
+{% if status == 'cancelled' %}
+<div class="order-progress cancelled" role="img" aria-label="Commande annulée">
+  <div class="progress-label" style="color:var(--red);">❌ Commande annulée</div>
+</div>
+{% else %}
+{% set idx = stages.index(status) if status in stages else 0 %}
+<div class="order-progress" role="img" aria-label="Progression de la commande">
+  {% for s in stages[:4] %}
+  <div class="progress-step {{ 'done' if loop.index0 < idx or status == 'delivered' }}">
+    <span class="progress-dot"></span>
+    <span class="progress-label">
+      {% if loop.index0 == 0 %}Reçue{% elif loop.index0 == 1 %}Préparée{% elif loop.index0 == 2 %}Expédiée{% else %}Livrée{% endif %}
+    </span>
+  </div>
+  {% if not loop.last %}<div class="progress-line {{ 'done' if loop.index0 < idx }}"></div>{% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}

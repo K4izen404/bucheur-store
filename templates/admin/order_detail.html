@@ -78,6 +78,10 @@
       {% endfor %}
     </select>
   </div>
+  <div class="field" style="margin:0;">
+    <label>Date de livraison prévue (jour)</label>
+    <input type="date" name="delivery_date" value="{{ order.delivery_date or '' }}" min="{{ today }}">
+  </div>
   <button type="submit" class="btn btn-gold">💾 Mettre à jour</button>
 </form>
 

@@ -17,6 +17,9 @@
         <label for="login-password">Mot de passe</label>
         <input type="password" id="login-password" name="password" required placeholder="••••••••" autocomplete="current-password">
       </div>
+      <div style="text-align:right; margin-bottom:14px;">
+        <a href="{{ url_for('forgot_password') }}" class="small" style="color:var(--gold);">Mot de passe oublié ?</a>
+      </div>
       <button type="submit" class="btn btn-gold btn-block">Se connecter</button>
     </form>
     <div class="auth-alt">Pas encore de compte ? <a href="{{ url_for('register') }}">Créer un compte</a></div>

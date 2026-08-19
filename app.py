@@ -207,6 +207,76 @@ Rufisque & Nord-Foire"""
     return send_email(user["email"], "Votre code de vérification Bûcheur", body), code
 
 
+def _notify_new_order(oid, name, phone, email, address, method, note, items, total):
+    """Email à l'admin + accusé de réception client (résilient : n'empêche jamais la commande)."""
+    lines = [f"Nouvelle commande #{oid} — {name}",
+             "", f"Client : {name}", f"Téléphone : +221 {phone}",
+             f"Email : {email}", f"Adresse de livraison : {address or '—'}",
+             "", "Articles :"]
+    for it in items:
+        lines.append(f"  - {it['product']['name']} x{it['qty']} — {it['product']['price']} FCFA")
+    lines += ["", f"Total : {total} FCFA",
+              f"Moyen de paiement : {'Wave' if method == 'wave' else ('Orange Money' if method == 'om' else 'À la livraison')}",
+              f"Note du client : {note or '—'}",
+              f"Date : {datetime.now().strftime('%d/%m/%Y %H:%M')}"]
+    admin_to = os.environ.get("ADMIN_NOTIFY_EMAIL") or os.environ.get("SMTP_FROM", "")
+    if admin_to:
+        try:
+            send_email(admin_to, f"Nouvelle commande #{oid} — {name}", "\n".join(lines))
+        except Exception:
+            print(f"[email] échec notification admin commande #{oid}")
+
+    payment_label = {"wave": "en attente de paiement",
+                     "om": "en attente de paiement",
+                     "cod": "paiement à la livraison"}.get(method, "en attente")
+    client_body = f"""Bonjour {name},
+
+Merci pour votre commande sur Bûcheur Études & Business !
+
+Commande #{oid} — récapitulatif :
+"""
+    for it in items:
+        client_body += f"  • {it['product']['name']} x{it['qty']} — {it['product']['price']} FCFA\n"
+    client_body += f"""
+Total : {total} FCFA
+Paiement : {payment_label}
+Adresse de livraison : {address or 'à confirmer'}
+
+Votre commande est bien enregistrée. Nous vous recontacterons au besoin sur votre téléphone ({phone}).
+
+— Bûcheur Études & Business
+Rufisque & Nord-Foire"""
+    if email:
+        try:
+            send_email(email, f"Confirmation de votre commande #{oid} — Bûcheur Études & Business", client_body)
+        except Exception:
+            print(f"[email] échec confirmation client commande #{oid}")
+
+
+def _notify_order_update(order, new_status=None, new_date=None):
+    """Email client lors d'un changement de statut et/ou date de livraison (résilient)."""
+    if not order["customer_email"]:
+        return
+    parts = [f"Bonjour {order['customer_name']},"]
+    if new_status:
+        parts.append(f"Votre commande #{order['id']} est maintenant : {ORDER_STATUS.get(new_status, new_status)}.")
+    if new_date:
+        try:
+            d = datetime.strptime(new_date, "%Y-%m-%d")
+            pretty = d.strftime("%A %d %B %Y").capitalize()
+        except ValueError:
+            pretty = new_date
+        parts.append(f"Livraison prévue : {pretty}.")
+    parts.append("")
+    parts.append("Merci de votre confiance.")
+    parts.append("— Bûcheur Études & Business")
+    parts.append("Rufisque & Nord-Foire")
+    try:
+        send_email(order["customer_email"], f"Mise à jour de votre commande #{order['id']}", "\n".join(parts))
+    except Exception:
+        print(f"[email] échec notification mise à jour commande #{order['id']}")
+
+
 def login_required(f):
     from functools import wraps
 
@@ -276,6 +346,7 @@ app.jinja_env.filters["money"] = money
 app.jinja_env.filters["wa_number"] = wa_number
 app.jinja_env.globals["PAYMENT_STATUS"] = PAYMENT_STATUS
 app.jinja_env.globals["ORDER_STATUS"] = ORDER_STATUS
+app.jinja_env.globals["today"] = datetime.now().strftime("%Y-%m-%d")
 
 
 def allowed_file(name):
@@ -489,6 +560,8 @@ def checkout():
         session["cart"] = {}
         session["last_order"] = oid
 
+        _notify_new_order(oid, name, phone, email, address, method, note, items, total)
+
         if method == "wave":
             return redirect(url_for("payment", oid=oid))
         if method == "om":
@@ -686,6 +759,133 @@ def account():
     return render_template("account.html", user=user, orders=orders)
 
 
+@app.route("/compte/mot-de-passe", methods=["POST"])
+@login_required
+def account_change_password():
+    user = query("SELECT * FROM users WHERE id=?", (session["user_id"],), one=True)
+    if not user:
+        abort(404)
+    current = request.form.get("mot_de_passe_actuel", "")
+    new_pass = request.form.get("nouveau_mot_de_passe", "")
+    confirm = request.form.get("confirmer_mot_de_passe", "")
+
+    if not check_password_hash(user["password_hash"], current):
+        flash("Le mot de passe actuel est incorrect.", "error")
+        return redirect(url_for("account"))
+    if len(new_pass) < 8:
+        flash("Le nouveau mot de passe doit faire au moins 8 caractères.", "error")
+        return redirect(url_for("account"))
+    if new_pass != confirm:
+        flash("Les mots de passe ne correspondent pas.", "error")
+        return redirect(url_for("account"))
+    if check_password_hash(user["password_hash"], new_pass):
+        flash("Le nouveau mot de passe doit être différent de l'actuel.", "error")
+        return redirect(url_for("account"))
+
+    execute("UPDATE users SET password_hash=? WHERE id=?",
+            (generate_password_hash(new_pass), user["id"]))
+    flash("Mot de passe modifié avec succès.", "success")
+    now = datetime.now().strftime("%d/%m/%Y à %H:%M")
+    send_email(user["email"], "Votre mot de passe a été modifié — Bûcheur Études & Business",
+               f"""Bonjour {user['name']},
+
+Votre mot de passe a été modifié le {now}.
+
+Si ce n'est pas vous, contactez-nous immédiatement :
+- WhatsApp : +221 77 757 27 76
+- Email : {os.environ.get('SMTP_FROM', '')}
+
+— Bûcheur Études & Business
+Rufisque & Nord-Foire""")
+    return redirect(url_for("account"))
+
+
+@app.route("/mot-de-passe-oublie", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        key = f"reset|{email}|{request.remote_addr}"
+        if not login_limiter(key):
+            flash("Trop de demandes. Réessayez dans 10 minutes.", "error")
+            return render_template("auth/forgot_password.html", sent=False)
+        login_failure(key)
+        user = query("SELECT * FROM users WHERE email=? AND verified=1", (email,), one=True)
+        if user and smtp_configured():
+            token = secrets.token_urlsafe(32)
+            expires = (datetime.now() + timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
+            execute("UPDATE users SET reset_token_hash=?, reset_token_expires=? WHERE id=?",
+                    (generate_password_hash(token), expires, user["id"]))
+            base = os.environ.get("APP_BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+            link = f"{base}/reinitialiser-mot-de-passe/{token}"
+            send_email(user["email"], "Réinitialisation de votre mot de passe — Bûcheur Études & Business",
+                       f"""Bonjour {user['name']},
+
+Vous avez demandé la réinitialisation de votre mot de passe.
+Cliquez sur ce lien (valable 15 minutes) :
+
+{link}
+
+Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.
+
+— Bûcheur Études & Business
+Rufisque & Nord-Foire""")
+        flash("Si un compte existe avec cet email, un lien de réinitialisation vient d'être envoyé.", "info")
+        return render_template("auth/forgot_password.html", sent=True)
+    return render_template("auth/forgot_password.html", sent=False)
+
+
+def _reset_user_by_token(token):
+    """Retourne l'utilisateur correspondant au jeton valide (non expiré), ou None."""
+    if not token:
+        return None
+    for u in query("SELECT * FROM users WHERE reset_token_hash IS NOT NULL"):
+        if check_password_hash(u["reset_token_hash"], token):
+            expires = u["reset_token_expires"]
+            if expires and datetime.strptime(expires, "%Y-%m-%d %H:%M:%S") >= datetime.now():
+                return u
+            return None
+    return None
+
+
+@app.route("/reinitialiser-mot-de-passe/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    user = _reset_user_by_token(token)
+    if not user:
+        if request.method == "POST":
+            flash("Ce lien est invalide ou expiré. Demandez un nouveau lien.", "error")
+            return redirect(url_for("forgot_password"))
+        return render_template("auth/reset_password.html", valid=False, token=token)
+    if request.method == "POST":
+        new_pass = request.form.get("nouveau_mot_de_passe", "")
+        confirm = request.form.get("confirmer_mot_de_passe", "")
+        if len(new_pass) < 8:
+            flash("Le mot de passe doit faire au moins 8 caractères.", "error")
+            return render_template("auth/reset_password.html", valid=True, token=token)
+        if new_pass != confirm:
+            flash("Les mots de passe ne correspondent pas.", "error")
+            return render_template("auth/reset_password.html", valid=True, token=token)
+        if check_password_hash(user["password_hash"], new_pass):
+            flash("Le nouveau mot de passe doit être différent de l'actuel.", "error")
+            return render_template("auth/reset_password.html", valid=True, token=token)
+        execute("UPDATE users SET password_hash=?, reset_token_hash=NULL, reset_token_expires=NULL WHERE id=?",
+                (generate_password_hash(new_pass), user["id"]))
+        flash("Mot de passe réinitialisé avec succès. Connectez-vous.", "success")
+        now = datetime.now().strftime("%d/%m/%Y à %H:%M")
+        send_email(user["email"], "Votre mot de passe a été réinitialisé — Bûcheur Études & Business",
+                   f"""Bonjour {user['name']},
+
+Votre mot de passe a été réinitialisé le {now}.
+
+Si ce n'est pas vous, contactez-nous immédiatement :
+- WhatsApp : +221 77 757 27 76
+- Email : {os.environ.get('SMTP_FROM', '')}
+
+— Bûcheur Études & Business
+Rufisque & Nord-Foire""")
+        return redirect(url_for("login"))
+    return render_template("auth/reset_password.html", valid=True, token=token)
+
+
 # ---------------------------------------------------------------- admin
 
 
@@ -873,12 +1073,39 @@ def admin_order_detail(oid):
 @app.route("/admin/commandes/<int:oid>/statut", methods=["POST"])
 @admin_required
 def admin_order_status(oid):
+    order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
+    if not order:
+        abort(404)
     status = request.form.get("order_status")
     payment = request.form.get("payment_status")
+    delivery_date = request.form.get("delivery_date", "").strip()
+
+    status_changed = status in ORDER_STATUS and status != order["order_status"]
+    date_changed = False
+    if delivery_date:
+        try:
+            parsed = datetime.strptime(delivery_date, "%Y-%m-%d").date()
+        except ValueError:
+            flash("Date de livraison invalide.", "error")
+            return redirect(url_for("admin_order_detail", oid=oid))
+        if parsed < datetime.now().date():
+            flash("La date de livraison ne peut pas être dans le passé.", "error")
+            return redirect(url_for("admin_order_detail", oid=oid))
+        if delivery_date != (order["delivery_date"] or ""):
+            date_changed = True
+
     if status in ORDER_STATUS:
         execute("UPDATE orders SET order_status=? WHERE id=?", (status, oid))
     if payment in PAYMENT_STATUS:
         execute("UPDATE orders SET payment_status=? WHERE id=?", (payment, oid))
+    if date_changed:
+        execute("UPDATE orders SET delivery_date=? WHERE id=?", (delivery_date, oid))
+
+    if status_changed or date_changed:
+        order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
+        _notify_order_update(order, new_status=status if status_changed else None,
+                             new_date=delivery_date if date_changed else None)
+
     flash("Statut de la commande mis à jour.", "success")
     return redirect(url_for("admin_order_detail", oid=oid))
 

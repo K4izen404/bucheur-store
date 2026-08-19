@@ -80,6 +80,7 @@ PAYMENT_STATUS = {
 ORDER_STATUS = {
     "pending": "En attente",
     "confirmed": "Confirmée",
+    "processing": "En cours de préparation",
     "shipped": "Expédiée",
     "delivered": "Livrée",
     "cancelled": "Annulée",
@@ -113,6 +114,18 @@ def init_db():
         pass
     try:
         conn.execute("ALTER TABLE users ADD COLUMN otp_expires TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN reset_token_hash TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN reset_token_expires TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE orders ADD COLUMN delivery_date TEXT")
     except sqlite3.OperationalError:
         pass
     try:
