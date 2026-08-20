@@ -1,9 +1,10 @@
+import os
 import re
 import sqlite3
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "bucheur.db"
+DB_PATH = Path(os.environ.get("DB_PATH", str(BASE_DIR / "bucheur.db")))
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -96,6 +97,7 @@ WAVE_ACCOUNT = "Bûcheur études business"
 
 
 def get_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
