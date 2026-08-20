@@ -107,20 +107,6 @@ un **compte Wave Business** (business.wave.com, validation KYC 3-7 jours), puis 
 - Utiliser un serveur WSGI (gunicorn/waitress) au lieu du serveur de dev
 - HTTPS + hébergement (Vercel/Render/Hostinger selon le budget) + nom de domaine
 
-### Docker (conseillé pour remettre le site à un acheteur)
-
-```bash
-docker compose up -d --build
-```
-
-- Premier démarrage : la base (`bucheur.db`) et les images produits de l'image sont copiées
-  dans les volumes persistants (`bucheur_data`, `bucheur_uploads`) — les données ne sont jamais perdues
-  (voir `entrypoint.sh`).
-- Configuration : variables d'environnement dans `docker-compose.yml` (SECRET_KEY, SMTP, FORCE_HTTPS…).
-- Chemin de la base surchargeable via `DB_PATH` (défaut : `bucheur.db` à côté du code).
-- HTTPS : à mettre derrière un reverse proxy (Caddy, Nginx, Traefik) ou un hébergement avec
-  certificat — `FORCE_HTTPS=1` uniquement une fois HTTPS en place.
-
 ### PythonAnywhere (gratuit)
 
 Guide complet : `DEPLOIEMENT_PYTHONANYWHERE.md` (à la racine du projet).
